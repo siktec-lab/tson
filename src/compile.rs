@@ -11,6 +11,14 @@ const PRIM_UINT: u16 = 3;
 const PRIM_FLOAT: u16 = 4;
 const PRIM_STRING: u16 = 5;
 
+// Pre-computed digit chars for shape key building (avoids to_string() allocation)
+const TAG_CHARS: [u8; 256] = {
+    let mut arr = [b'?'; 256];
+    arr[0] = b'0'; arr[1] = b'1'; arr[2] = b'2'; arr[3] = b'3'; arr[4] = b'4'; arr[5] = b'5';
+    arr[16] = b'6'; arr[17] = b'7'; arr[10] = b'?'; arr[11] = b'?'; arr[12] = b'?'; arr[13] = b'?'; arr[14] = b'?'; arr[15] = b'?';
+    arr
+};
+
 fn prim_def(tag: TsonType) -> u16 {
     match tag {
         TsonType::Null => PRIM_NULL, TsonType::Bool => PRIM_BOOL,
@@ -33,8 +41,8 @@ fn primitive_defs() -> Vec<TsonDefinition> {
 
 pub fn compile_json(root: &JsonValue) -> Result<TsonDocument, TsonError> {
     let mut builder = CompileBuilder::new();
-    builder.discover(root)?;
-    let chunks = builder.emit(root)?;
+    // Single pass: compile recursively, building defs and emitting in one traversal
+    let chunks = builder.compile(root)?;
     builder.finish(chunks)
 }
 
@@ -48,19 +56,17 @@ struct CompileBuilder {
     shape_index: HashMap<String, u16>,
     array_index: HashMap<String, u16>,
     next_idx: u16,
-    /// String interning: dict index → String, and String → dict index.
     dict: Vec<String>,
     dict_map: HashMap<String, u32>,
 }
 
-fn object_shape_key(fields: &[(String, u8)]) -> String {
-    let mut key = String::new();
-    for (i, (name, tag)) in fields.iter().enumerate() {
-        if i > 0 { key.push(','); }
-        key.push_str(name);
-        key.push(':');
-        key.push_str(&tag.to_string());
-    }
+/// Build shape key WITHOUT allocating via `to_string()`.
+/// Uses a pre-computed character table for tag digits.
+fn fast_shape_key(name: &str, tag: u8) -> String {
+    let mut key = String::with_capacity(name.len() + 1);
+    key.push_str(name);
+    key.push(':');
+    key.push(TAG_CHARS[tag as usize] as char);
     key
 }
 
@@ -70,54 +76,20 @@ impl CompileBuilder {
         Self { next_idx: prims.len() as u16, defs: prims, shape_index: HashMap::new(), array_index: HashMap::new(), dict: Vec::new(), dict_map: HashMap::new() }
     }
 
-    /// Single-pass string interning: returns `StrRef(idx)` on repeat, inline `String(s)` on first sight.
     fn emit_string(&mut self, s: &str) -> TsonData {
         if let Some(&idx) = self.dict_map.get(s) {
             return TsonData::StrRef(idx);
         }
         let idx = self.dict.len() as u32;
         let owned: String = alloc::string::ToString::to_string(s);
-        self.dict.push(owned.clone());
-        self.dict_map.insert(owned, idx);
+        self.dict_map.insert(owned.clone(), idx);
+        self.dict.push(owned);
         TsonData::String(s.into())
     }
 
-    fn discover(&mut self, value: &JsonValue) -> Result<u16, TsonError> {
-        match value {
-            JsonValue::Null => Ok(PRIM_NULL), JsonValue::Bool(_) => Ok(PRIM_BOOL),
-            JsonValue::Number(n) if n.is_f64() && !n.is_i64() => Ok(PRIM_FLOAT),
-            JsonValue::Number(n) if n.is_i64() => Ok(PRIM_INT),
-            JsonValue::Number(_) => Ok(PRIM_UINT),
-            JsonValue::String(_) => Ok(PRIM_STRING),
-
-            JsonValue::Array(items) => {
-                let elem_tag = items.iter().find_map(|v| { let t = json_type_tag(v); if t == 0 { None } else { Some(t) } }).unwrap_or(0u8);
-                let sign = format!("arr:{}", elem_tag);
-                let idx = if let Some(&idx) = self.array_index.get(&sign) { idx } else {
-                    let idx = self.alloc_def();
-                    self.defs.push(TsonDefinition { def_type: TsonType::Array, index: idx, name: None, fields: None, elem_type: Some(TsonType::from_u8(elem_tag)?) });
-                    self.array_index.insert(sign, idx); idx
-                };
-                for item in items { self.discover(item)?; }
-                Ok(idx)
-            }
-
-            JsonValue::Object(map) => {
-                for v in map.values() { self.discover(v)?; }
-                let mut field_entries: Vec<(String, u8)> = map.iter().map(|(k, v)| (k.clone(), json_type_tag(v))).collect();
-                field_entries.sort_by(|a, b| a.0.cmp(&b.0));
-                let sign = object_shape_key(&field_entries);
-                if let Some(&idx) = self.shape_index.get(&sign) { return Ok(idx); }
-                let idx = self.alloc_def();
-                let fields: Vec<(String, TsonType)> = field_entries.iter().map(|(n, t)| Ok::<_, TsonError>((n.clone(), TsonType::from_u8(*t)?))).collect::<Result<_, _>>()?;
-                self.defs.push(TsonDefinition { def_type: TsonType::Object, index: idx, name: None, fields: Some(fields), elem_type: None });
-                self.shape_index.insert(sign, idx);
-                Ok(idx)
-            }
-        }
-    }
-
-    fn emit(&mut self, value: &JsonValue) -> Result<Vec<TsonChunk>, TsonError> {
+    /// Single-pass compile: recursively walk the JSON tree, building
+    /// definitions on first sight and emitting TsonChunks.
+    fn compile(&mut self, value: &JsonValue) -> Result<Vec<TsonChunk>, TsonError> {
         match value {
             JsonValue::Null   => Ok(vec![TsonChunk { definition_index: PRIM_NULL,  data: TsonData::Null }]),
             JsonValue::Bool(b)=> Ok(vec![TsonChunk { definition_index: PRIM_BOOL,  data: TsonData::Bool(*b) }]),
@@ -125,22 +97,50 @@ impl CompileBuilder {
             JsonValue::String(s)=> Ok(vec![TsonChunk { definition_index: PRIM_STRING, data: self.emit_string(s) }]),
 
             JsonValue::Array(items) => {
-                let arr_def_idx = self.find_array_def(items)?;
                 let mut elements = Vec::with_capacity(items.len());
-                for item in items { elements.push(self.emit_inline(item)?); }
+                for item in items {
+                    elements.push(self.compile_inline(item)?);
+                }
+                let elem_tag = array_elem_tag(items);
+                let arr_sign = format!("arr:{}", elem_tag);
+                let arr_def_idx = if let Some(&idx) = self.array_index.get(&arr_sign) { idx } else {
+                    let idx = self.alloc_def();
+                    self.defs.push(TsonDefinition { def_type: TsonType::Array, index: idx, name: None, fields: None, elem_type: Some(TsonType::from_u8(elem_tag)?) });
+                    self.array_index.insert(arr_sign, idx); idx
+                };
                 let elem_def_idx = resolve_elem_def(&elements);
                 Ok(vec![TsonChunk { definition_index: arr_def_idx, data: TsonData::Array(arr_def_idx, elem_def_idx, elements) }])
             }
 
             JsonValue::Object(map) => {
-                let obj_def_idx = self.find_object_def(map)?;
-                let fields = self.emit_object_fields(map)?;
-                Ok(vec![TsonChunk { definition_index: obj_def_idx, data: TsonData::Object(obj_def_idx, fields) }])
+                // Recursively compile field values first
+                let mut sorted: Vec<(&String, &JsonValue)> = map.iter().collect();
+                sorted.sort_by(|a, b| a.0.cmp(b.0));
+                let mut field_vals = Vec::with_capacity(map.len());
+                for (_k, v) in &sorted { field_vals.push(self.compile_inline(v)?); }
+
+                // Build shape key from sorted fields
+                let mut shape_key = String::new();
+                for (i, (name, v)) in sorted.iter().enumerate() {
+                    if i > 0 { shape_key.push(','); }
+                    shape_key.push_str(&fast_shape_key(name, json_type_tag(v)));
+                }
+
+                let obj_def_idx = if let Some(&idx) = self.shape_index.get(&shape_key) { idx } else {
+                    let idx = self.alloc_def();
+                    let fields: Vec<(String, TsonType)> = sorted.iter()
+                        .map(|(n, v)| Ok::<_, TsonError>((alloc::string::ToString::to_string(*n), TsonType::from_u8(json_type_tag(v))?)))
+                        .collect::<Result<_, _>>()?;
+                    self.defs.push(TsonDefinition { def_type: TsonType::Object, index: idx, name: None, fields: Some(fields), elem_type: None });
+                    self.shape_index.insert(shape_key, idx); idx
+                };
+
+                Ok(vec![TsonChunk { definition_index: obj_def_idx, data: TsonData::Object(obj_def_idx, field_vals) }])
             }
         }
     }
 
-    fn emit_inline(&mut self, value: &JsonValue) -> Result<TsonData, TsonError> {
+    fn compile_inline(&mut self, value: &JsonValue) -> Result<TsonData, TsonError> {
         match value {
             JsonValue::Null       => Ok(TsonData::Null),
             JsonValue::Bool(b)    => Ok(TsonData::Bool(*b)),
@@ -148,51 +148,43 @@ impl CompileBuilder {
             JsonValue::String(s)  => Ok(self.emit_string(s)),
 
             JsonValue::Array(items) => {
-                let elem_tag = array_elem_tag(items);
-                let sign = format!("arr:{}", elem_tag);
-                let arr_def_idx = *self.array_index.get(&sign).ok_or_else(|| TsonError::ParseError("Array definition not found".into()))?;
                 let mut elements = Vec::with_capacity(items.len());
-                for item in items { elements.push(self.emit_inline(item)?); }
+                for item in items { elements.push(self.compile_inline(item)?); }
+                let elem_tag = array_elem_tag(items);
+                let arr_sign = format!("arr:{}", elem_tag);
+                let arr_def_idx = if let Some(&idx) = self.array_index.get(&arr_sign) { idx } else {
+                    let idx = self.alloc_def();
+                    self.defs.push(TsonDefinition { def_type: TsonType::Array, index: idx, name: None, fields: None, elem_type: Some(TsonType::from_u8(elem_tag)?) });
+                    self.array_index.insert(arr_sign, idx); idx
+                };
                 let elem_def_idx = resolve_elem_def(&elements);
                 Ok(TsonData::Array(arr_def_idx, elem_def_idx, elements))
             }
 
             JsonValue::Object(map) => {
-                let mut field_entries: Vec<(String, u8)> = map.iter().map(|(k, v)| (k.clone(), json_type_tag(v))).collect();
-                field_entries.sort_by(|a, b| a.0.cmp(&b.0));
-                let sign = object_shape_key(&field_entries);
-                let obj_def_idx = *self.shape_index.get(&sign).ok_or_else(|| TsonError::ParseError("Object definition not found".into()))?;
-                let fields = self.emit_object_fields(map)?;
-                Ok(TsonData::Object(obj_def_idx, fields))
+                let mut sorted: Vec<(&String, &JsonValue)> = map.iter().collect();
+                sorted.sort_by(|a, b| a.0.cmp(b.0));
+                let mut field_vals = Vec::with_capacity(map.len());
+                for (_k, v) in &sorted { field_vals.push(self.compile_inline(v)?); }
+                let mut shape_key = String::new();
+                for (i, (name, v)) in sorted.iter().enumerate() {
+                    if i > 0 { shape_key.push(','); }
+                    shape_key.push_str(&fast_shape_key(name, json_type_tag(v)));
+                }
+                let obj_def_idx = if let Some(&idx) = self.shape_index.get(&shape_key) { idx } else {
+                    let idx = self.alloc_def();
+                    let fields: Vec<(String, TsonType)> = sorted.iter()
+                        .map(|(n, v)| Ok::<_, TsonError>((alloc::string::ToString::to_string(*n), TsonType::from_u8(json_type_tag(v))?)))
+                        .collect::<Result<_, _>>()?;
+                    self.defs.push(TsonDefinition { def_type: TsonType::Object, index: idx, name: None, fields: Some(fields), elem_type: None });
+                    self.shape_index.insert(shape_key, idx); idx
+                };
+                Ok(TsonData::Object(obj_def_idx, field_vals))
             }
         }
     }
 
-    fn emit_object_fields(&mut self, map: &serde_json::Map<String, JsonValue>) -> Result<Vec<TsonData>, TsonError> {
-        let mut field_vals = Vec::with_capacity(map.len());
-        let mut sorted_names: Vec<&String> = map.keys().collect();
-        sorted_names.sort();
-        for name in sorted_names {
-            let val = map.get(name.as_str()).unwrap();
-            field_vals.push(self.emit_inline(val)?);
-        }
-        Ok(field_vals)
-    }
-
     fn alloc_def(&mut self) -> u16 { let idx = self.next_idx; self.next_idx += 1; idx }
-
-    fn find_array_def(&self, items: &[JsonValue]) -> Result<u16, TsonError> {
-        let elem_tag = array_elem_tag(items);
-        let sign = format!("arr:{}", elem_tag);
-        self.array_index.get(&sign).copied().ok_or_else(|| TsonError::ParseError("Array definition not found".into()))
-    }
-
-    fn find_object_def(&self, map: &serde_json::Map<String, JsonValue>) -> Result<u16, TsonError> {
-        let mut field_entries: Vec<(String, u8)> = map.iter().map(|(k, v)| (k.clone(), json_type_tag(v))).collect();
-        field_entries.sort_by(|a, b| a.0.cmp(&b.0));
-        let sign = object_shape_key(&field_entries);
-        self.shape_index.get(&sign).copied().ok_or_else(|| TsonError::ParseError("Object definition not found".into()))
-    }
 
     fn finish(self, chunks: Vec<TsonChunk>) -> Result<TsonDocument, TsonError> {
         Ok(TsonDocument { header: TsonHeader::new(1, TsonHeader::SIZE as u32, 0, 0), definitions: self.defs, dict: self.dict, data: chunks })

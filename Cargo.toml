@@ -17,6 +17,14 @@ path = "src/main.rs"
 name = "tson-bench"
 path = "src/bin/bench.rs"
 
+[[bin]]
+name = "gen-examples"
+path = "benches/gen_examples.rs"
+
+[[bin]]
+name = "comp-bench"
+path = "benches/comp_bench.rs"
+
 [features]
 default = ["std", "json"]
 std = []

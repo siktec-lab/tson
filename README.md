@@ -145,6 +145,51 @@ cargo run --release --bin tson-bench -- --perf
 - Compile latency is sub-20µs typical — fast enough for real-time encoding on microcontrollers.
 - The benchmark auto-discovers all `.json` files in `examples/` — drop in new files to expand the comparison.
 
+## Why TSON? Comparison with Other Formats
+
+TSON occupies a unique position in the binary JSON landscape — it is neither a general-purpose serializer nor a schema-first code generator. It compiles JSON into a **self-describing, compressed binary** that is optimised for *decoding on constrained devices*.
+
+### Size Comparison (our example files)
+
+| File | JSON | TSON | Savings |
+|------|------|------|---------|
+| `telemetry.json` (500 sensor readings) | 54.4 KB | 16.2 KB | **70.2%** |
+| `config.json` (200 routing rules) | 27.9 KB |  8.4 KB | **69.7%** |
+| `iot-t2.json` |  1.3 KB | 771 B | 40.3% |
+| `users-t1.json` | 886 B | 546 B | 38.4% |
+
+For repetitive structured data, TSON achieves **60-70% compression** by deduplicating field names and storing them once in a definition block. The larger and more repetitive the input, the better the ratio.
+
+### Format Comparison
+
+| Feature | TSON | MessagePack | CBOR | serde\_json | Protobuf | FlatBuffers |
+|---------|------|-------------|------|-------------|----------|-------------|
+| **Self-describing** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
+| **Schema discovery** | ✅ auto | ❌ | ❌ | ❌ | ❌ hardcoded | ❌ |
+| **String interning** | ✅ per-document | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Field-name dedup** | ✅ auto | ❌ repeats keys | ❌ | ❌ | ❌ | ❌ |
+| **Streaming decode** | ✅ O(1) mem | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **no\_std + alloc** | ✅ | ❌ std | ❌ std | ❌ std | ❌ | ❌ |
+| **Zero-copy strings** | ✅ StrRef | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **Security caps** | ✅ built-in | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Human-readable** | ❌ binary | ❌ binary | ❌ binary | ✅ text | ❌ | ❌ |
+
+### When to Use Each Format
+
+| Scenario | Best Choice | Why |
+|----------|-------------|-----|
+| Browser ↔ server REST API | **JSON** | Native support everywhere |
+| General-purpose binary packing | **MessagePack** | Good libraries, no schema needed |
+| IoT with constrained nodes | **CBOR** | RFC standard, concise encoding |
+| High-performance RPC | **Protobuf** | Schema-first, fast, compact |
+| Microcontroller receiving structured telemetry | **TSON** | No schema file, streaming, zero-copy strings |
+| Embedded device with limited RAM | **TSON** | `no_std` + alloc, O(1) per-entry memory |
+| Config files needing human readability | **JSON** | Text is still the universal interface |
+
+### Key Insight
+
+**TSON trades compile time for decode efficiency.** The compiler does the heavy lifting — discovering schemas, interning strings, building definitions — so that the decoder on a microcontroller can process data without allocating field names and strings. For a server compiling millions of telemetry packets, the compile cost is amortized. For the microcontroller decoding thousands of entries, the memory savings and allocation-free path are transformative.
+
 ## Security
 
 TSON prioritizes safe decoding of untrusted input. The reference implementation includes:
