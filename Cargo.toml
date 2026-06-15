@@ -12,6 +12,10 @@ path = "src/lib.rs"
 name = "tson-cli"
 path = "src/main.rs"
 
+[[bin]]
+name = "tson-bench"
+path = "src/bin/bench.rs"
+
 [features]
 default = ["std", "json"]
 std = []

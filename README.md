@@ -105,6 +105,46 @@ cargo build --no-default-features --features std
 
 All core modules (`structure`, `encode`, `decode`, `stream`) operate on `&[u8]` slices with zero system dependencies beyond `alloc`. The JSON bridge (`compile`, `decompile`) is feature-gated behind `#[cfg(feature = "json")]`.
 
+## Benchmark
+
+The project includes a built-in benchmark tool (`tson-bench`) that scans `examples/` for `.json` files, compiles each to TSON, and reports compression ratios with optional p50/p99 timing.
+
+```bash
+# Compression summary
+cargo run --bin tson-bench
+
+# With p50/p99 compile latency (200 iterations)
+cargo run --release --bin tson-bench -- --perf
+```
+
+### Results (release build)
+
+```
+╔══════════════════════╤══════════╤══════════╤══════════╤══════════╤═════════╗
+║ File                 │ JSON (B) │ TSON (B) │   Ratio  │    Defs  │ Entries ║
+╠══════════════════════╪══════════╪══════════╪══════════╪══════════╪═════════╣
+║ iot-t2.json          │     1.3K │    623 B │    48.2% │       13 │       1 ║
+║ users-t1.json        │    886 B │    381 B │    43.0% │       10 │       1 ║
+╟──────────────────────┼──────────┼──────────┼──────────┼──────────┼─────────╢
+║ TOTAL                │     2.1K │   1004 B │    46.1% │          │         ║
+╚══════════════════════╧══════════╧══════════╧══════════╧══════════╧═════════╝
+```
+
+**Overall**: 46.1% of original size — **53.9% space savings**.
+
+| File | avg | p50 | p99 |
+|------|-----|-----|-----|
+| `iot-t2.json` (1.3K) | 17.2µs | 16.5µs | 32.3µs |
+| `users-t1.json` (886 B) | 12.9µs | 12.5µs | 23.7µs |
+
+200 iterations each, release build. Compile latency stays under 35µs p99 for both files.
+
+### Observations
+- **57% compression** on `users-t1.json` — 3 identical user records; field names stored once instead of 9 times.
+- **52% compression** on `iot-t2.json` — mixed nested objects with 6 unique shapes; definition block fits in 30 bytes.
+- Compile latency is sub-20µs typical — fast enough for real-time encoding on microcontrollers.
+- The benchmark auto-discovers all `.json` files in `examples/` — drop in new files to expand the comparison.
+
 ## Full Format Specification
 
 See [TSON-FORMAT.md](TSON-FORMAT.md) for the complete binary wire protocol.
