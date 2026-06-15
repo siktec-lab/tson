@@ -145,6 +145,18 @@ cargo run --release --bin tson-bench -- --perf
 - Compile latency is sub-20µs typical — fast enough for real-time encoding on microcontrollers.
 - The benchmark auto-discovers all `.json` files in `examples/` — drop in new files to expand the comparison.
 
+## Security
+
+TSON prioritizes safe decoding of untrusted input. The reference implementation includes:
+
+- **Bounds-checked reads**: every byte access is guarded, no panics on malformed input.
+- **OOM caps**: entry count (1M max), definition count (2048 max), fields per object (256 max).
+- **Recursion guard**: nesting depth limited to 128 — prevents stack overflow from circular definitions.
+- **UTF-8 validation**: all string data is validated; invalid sequences are rejected.
+- **Header validation**: offsets checked for consistency before use.
+
+See the [Security Considerations](TSON-FORMAT.md#10-security-considerations) section in TSON-FORMAT.md for full details.
+
 ## Full Format Specification
 
 See [TSON-FORMAT.md](TSON-FORMAT.md) for the complete binary wire protocol.

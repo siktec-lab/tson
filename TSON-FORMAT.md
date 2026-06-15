@@ -372,7 +372,55 @@ element        := primitive_value | object_payload | array_payload
 
 ---
 
-## 10. Reference Implementation
+## 10. Security Considerations
+
+### 10.1 Malformed Headers
+
+TSON decoders MUST validate all header fields before using them:
+
+| Field | Check | Rationale |
+|-------|-------|-----------|
+| `version` | Must equal known version (currently `1`) | Rejects unknown future formats. |
+| `def_off` | Must be ≥ 9 (after header). Must be ≤ total bytes. | Prevents out-of-bounds reads. |
+| `data_off` | Must be strictly > `def_off` (at least 2 bytes for `def_count`). Must be ≤ total bytes. | Prevents empty or overlapping definition blocks. |
+
+The reference implementation (`tson` crate) enforces all three checks and rejects malformed headers with a `ParseError`.
+
+### 10.2 Memory Exhaustion (OOM)
+
+The data block header contains an `entry_count` (`u32`), and the definition block header contains `def_count` (`u16`). An attacker can set these to the maximum value, causing the decoder to attempt a large `Vec::with_capacity` allocation.
+
+| Field | Max declared | Reference implementation cap |
+|-------|-------------|------------------------------|
+| `entry_count` (u32) | 4,294,967,295 | 1,048,576 (2²⁰) |
+| `def_count` (u16) | 65,535 | 2,048 |
+| `field_count` (u16) | 65,535 | 256 |
+
+Additionally, the reference implementation validates `count * min_entry_size ≤ remaining_bytes` before pre-allocating, rejecting documents where the declared counts exceed the available data.
+
+### 10.3 Recursive/Circular Definitions
+
+An attacker can craft a definition block where an Object field type refers back to the same Object (directly or transitively: `A→B→A`), and the data block contains a payload that triggers infinite recursion in the decoder.
+
+The reference implementation maintains a **recursion depth counter** incremented for each nested Object/Array value. If the depth exceeds **128**, decoding aborts with a `ParseError`.
+
+This prevents stack overflow from maliciously nested payloads, regardless of definition structure.
+
+### 10.4 Integer Overflow
+
+Byte offsets and lengths are `u32` values. On platforms where `usize` matches `u32` (32-bit targets), an attacker-controlled `payload_len` of `u32::MAX` could cause wrapping arithmetic. The reference implementation guards against this by comparing `pos + payload_len` against the buffer length — if the buffer is smaller than `payload_len`, the read is rejected before any arithmetic overflow can occur.
+
+### 10.5 UTF-8 Validation
+
+All decoded strings (field names, string values) are validated as UTF-8. Invalid sequences produce a `ParseError` rather than propagating undetected data. This prevents encoding-based attacks and ensures the decoded `TsonData::String` values are always valid Rust `String`s.
+
+### 10.6 Unvalidated Index References
+
+A data entry's `def_index` may reference a definition that does not exist or is of the wrong type (e.g., a Bool entry using an Object definition index). The reference implementation validates every index lookup and returns `ParseError("Unknown definition index")` if the index is not found. If the definition type is inconsistent with the entry's actual payload, the `self_def_index` embedded in the payload will also be validated, providing a second line of defense.
+
+---
+
+## 11. Reference Implementation
 
 The Rust crate `tson` is the reference implementation. Build:
 
