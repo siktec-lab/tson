@@ -1,0 +1,53 @@
+{
+    "time": "2024-06-30T12:00:00Z",
+    "location": "sensor-array-1",
+    "geo": {
+        "lat": 37.7749,
+        "lon": -122.4194
+    },
+    "readings": [
+        {
+            "type": "temperature",
+            "value": 22.5,
+            "unit": "C"
+        },
+        {
+            "type": "humidity",
+            "value": 60,
+            "unit": "%"
+        },
+        {
+            "type": "pressure",
+            "value": 1013,
+            "unit": "hPa"
+        }
+    ],
+    "alerts": [
+        {
+            "time": "2024-06-30T12:05:00Z",
+            "type": "temperature",
+            "threshold": 25,
+            "severity": "warning"
+        },
+        {
+            "time": "2024-06-30T12:10:00Z",
+            "type": "humidity",
+            "threshold": 70,
+            "severity": "critical"
+        },
+        {
+            "time": "2024-06-30T12:15:00Z",
+            "type": "pressure",
+            "threshold": 1000,
+            "severity": "warning"
+        }
+    ],
+    "metadata": {
+        "device_id": "sensor-array-1",
+        "location": "rooftop",
+        "firmware_version": "1.2.3",
+        "last_calibration": "2024-06-01T08:00:00Z",
+        "has_battery_backup": true,
+        "hardrive_serial": null
+    }
+}
