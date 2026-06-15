@@ -1,0 +1,38 @@
+[
+    {
+        "id": 1,
+        "name": "Alice",
+        "age": 30,
+        "address": {
+            "street": "123 Main St",
+            "city": "Anytown",
+            "state": "CA",
+            "zip": "12345"
+        },
+        "hobbies": ["reading", "hiking", "cooking"]
+    },
+    {
+        "id": 2,
+        "name": "Bob",
+        "age": 25,
+        "address": {
+            "street": "456 Elm St",
+            "city": "Othertown",
+            "state": "NY",
+            "zip": "67890"
+        },
+        "hobbies": ["gaming", "traveling", "photography"]
+    },
+    {
+        "id": 3,
+        "name": "Charlie",
+        "age": 35,
+        "address": {
+            "street": "789 Oak St",
+            "city": "Sometown",
+            "state": "TX",
+            "zip": "54321"
+        },
+        "hobbies": ["music", "sports", "gardening"]
+    }
+]
