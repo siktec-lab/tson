@@ -19,11 +19,11 @@ path = "src/bin/bench.rs"
 
 [[bin]]
 name = "gen-examples"
-path = "benches/gen_examples.rs"
+path = "src/bin/gen_examples.rs"
 
 [[bin]]
 name = "comp-bench"
-path = "benches/comp_bench.rs"
+path = "src/bin/comp_bench.rs"
 
 [features]
 default = ["std", "json"]
