@@ -127,9 +127,9 @@ impl TsonHeader {
                 Self::SIZE
             )));
         }
-        if self.blk_data < self.blk_definition {
+        if self.blk_data <= self.blk_definition {
             return Err(TsonError::ParseError(format!(
-                "Data block offset ({}) must not be before definition offset ({})",
+                "Data block offset ({}) must be strictly after definition offset ({}). Definitions need at least 2 bytes.",
                 self.blk_data, self.blk_definition
             )));
         }

@@ -142,7 +142,7 @@ impl<'a> TsonStreamReader<'a> {
         let payload = &self.data_slice[6..6 + payload_len];
 
         // Decode the value using the root-value decoder from decode.rs
-        let result = decode::decode_root_value(payload, def_index, &self.definitions);
+        let result = decode::decode_root_value(payload, def_index, &self.definitions, 0);
 
         match result {
             Ok((data, consumed)) => {
