@@ -6,6 +6,8 @@
 #[cfg(feature = "json")]
 mod roundtrip_tests {
 
+    use tson::TsonHeader;
+
     fn verify_roundtrip(json_input: &str) {
         // Compile JSON → TSON document
         let doc = tson::compile_json(json_input).unwrap();
@@ -228,15 +230,14 @@ mod roundtrip_tests {
     // ── Binary format integrity ───────────────────────────────────────
 
     #[test]
-    fn header_size_is_9_bytes() {
+    fn header_size_is_13_bytes() {
         let doc = tson::compile_json("\"test\"").unwrap();
         let bytes = tson::to_bytes(&doc).unwrap();
-        assert!(bytes.len() >= 9, "must have header");
-        // First 9 bytes are header — verify version and offsets
+        assert!(bytes.len() >= TsonHeader::SIZE, "must have header");
         assert_eq!(bytes[0], 1, "version must be 1");
         let def_off =
             u32::from_le_bytes(bytes[1..5].try_into().unwrap()) as usize;
-        assert_eq!(def_off, 9, "definition block must start after header");
+        assert_eq!(def_off, TsonHeader::SIZE, "definition block must start after header");
     }
 
     #[test]

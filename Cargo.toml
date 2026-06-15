@@ -3,6 +3,7 @@ name = "tson"
 version = "0.1.0"
 edition = "2021"
 description = "Terse JSON — a compact binary JSON format for microcontrollers and constrained environments"
+default-run = "tson-cli"
 
 [lib]
 name = "tson"

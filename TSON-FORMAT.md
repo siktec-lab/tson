@@ -12,8 +12,8 @@ The format is designed for microcontrollers and constrained environments: the de
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│  HEADER (9 bytes, fixed)                             │
-│  [version:u8] [def_off:u32 LE] [data_off:u32 LE]     │
+│  HEADER (13 bytes, fixed)                               │
+│  [version:u8][def_off:u32][dict_off:u32][data_off:u32]│
 ├──────────────────────────────────────────────────────┤
 │  DEFINITION BLOCK                                    │
 │  [def_count:u16 LE]                                  │
@@ -24,7 +24,11 @@ The format is designed for microcontrollers and constrained environments: the de
 │    If Array:  [elem_type:u8]                         │
 │    (Primitives carry no extra data)                  │
 ├──────────────────────────────────────────────────────┤
-│  DATA BLOCK                                          │
+│  DICT BLOCK                                           │
+│  [entry_count:u32 LE]                                 │
+│    [str_len:hybrid][UTF-8 bytes] × N                   │
+├──────────────────────────────────────────────────────┤
+│  DATA BLOCK                                           │
 │  [entry_count:u32 LE]                                │
 │  For each entry:                                     │
 │    [def_index:u16 LE] [payload_len:u32 LE]           │
@@ -41,10 +45,11 @@ All multi-byte integers are little-endian (`LE`).
 | Offset | Size | Field | Description |
 |--------|------|-------|-------------|
 | 0      | 1    | `version` | Format version. Currently `1`. |
-| 1      | 4    | `def_off` | Byte offset to the definition block. Always ≥ 9. |
-| 5      | 4    | `data_off`| Byte offset to the data block. Always > `def_off`. |
+| 1      | 4    | `def_off` | Byte offset to the definition block. Always ≥ 13. |
+| 5      | 4    | `dict_off`| Byte offset to the dict block (string interning). |
+| 9      | 4    | `data_off`| Byte offset to the data block. Always ≥ dict_off. |
 
-The header is exactly 9 bytes. The byte range `[def_off .. data_off)` is the definition block. Bytes from `data_off` to end-of-file are the data block.
+The header is exactly 13 bytes. Bytes `[def_off..dict_off)` form the definition block, `[dict_off..data_off)` the dict block, `[data_off..]` the data block. The byte range `[def_off .. data_off)` is the definition block. Bytes from `data_off` to end-of-file are the data block.
 
 ---
 
@@ -63,7 +68,7 @@ Each type has a unique `u8` tag used in definitions and payloads.
 | 0x10 | Array  | variable  | Ordered list of same-type elements |
 | 0x11 | Object | variable  | Set of key-value pairs whose schema is in a definition |
 
-Tags 0x00–0x05 are **primitive** types. Tags 0x10–0x11 are **compound** types.
+Tags 0x00–0x05 are **primitive** types. Tags 0x10–0x11 are **compound** types. Note: there is no separate `StrRef` type tag — string interning is handled per-value within the `String` payload using the sentinel value `0xFF` (see §Payload Formats).
 
 ---
 
@@ -207,11 +212,23 @@ No payload bytes. `payload_len` is 0.
 
 > **Precision warning**: binary32 has ~7 decimal digits of precision. Round-tripping a JSON float through TSON may introduce small representation errors (e.g., `3.14` → `3.1400001`). Use exactly-representable values (powers of two) when exactness matters.
 
-#### String
+#### String (hybrid-length encoding)
+
+`String` payloads use a **self-describing length prefix** that saves space for small strings while supporting strings up to 16 MB.
+
+| First byte | Overhead | Max length | Format |
+|------------|----------|------------|--------|
+| `0x00–0x7F` | 1 B | 127 B | `[len: u8][UTF-8]` |
+| `0x80–0xBF` | 2 B | 16 383 B | `[0x80\|hi6][lo8][UTF-8]` |
+| `0xFE` | 4 B | 16 777 215 B | `[0xFE][u24 LE][UTF-8]` |
+| `0xFF` | 5 B | (StrRef) | `[0xFF][dict_idx: u32 LE]` |
+
+Bytes `0xC0–0xFD` are reserved for future extensions. The sentinel value `0xFF` indicates that the next four bytes are a dict index rather than string data.
+
 ```
-[str_len: u16 LE] [data: UTF-8 bytes]
+Inline:   [first_byte: u8]  [length_extension: 0–3 bytes]  [UTF-8]
+StrRef:   [0xFF]             [dict_index: u32 LE]           (5 bytes total)
 ```
-Length prefix (2 bytes) followed by the raw UTF-8 string. Maximum string length is 65535 bytes. `payload_len` = 2 + `str_len`.
 
 #### Object
 ```
@@ -316,7 +333,7 @@ Array elements are encoded as a single element type. JSON allows heterogeneous a
 TSON uses binary32 (f32) for floats, providing ~7 significant digits. Values like `3.14` or `1.5e10` will not round-trip exactly. Use integer types or strings for exact numeric precision.
 
 ### 7.3 String Length
-Maximum string length is 65535 bytes (limited by `u16` length prefix).
+Maximum inline string length is 16 777 215 bytes (24-bit, ~16 MB). Strings up to 127 bytes use 1-byte length overhead. The sentinel value `0xFF` is never a valid inline string length — it triggers a 5-byte StrRef dict index instead.
 
 ### 7.4 Array and Object Count
 Maximum element count per array is 65535 (limited by `u16` count prefix). Maximum field count per object is 65535.

@@ -48,9 +48,9 @@ pub mod decompile;
 
 pub use tson::{
     TsonChunk, TsonData, TsonDefinition, TsonDocument, TsonHeader, TsonType,
-    TsonStreamReader,
     to_bytes, from_bytes, decode_definitions,
 };
+pub use stream::TsonStreamReader;
 
 #[cfg(feature = "json")]
 pub use tson::{

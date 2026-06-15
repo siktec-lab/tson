@@ -23,6 +23,9 @@ use crate::structure::*;
 pub struct TsonStreamReader<'a> {
     /// Parsed definitions — kept alive so each entry can reference its schema.
     pub(crate) definitions: Vec<TsonDefinition>,
+    /// Parsed string interning table.
+    #[allow(dead_code)]
+    pub(crate) dict: Vec<String>,
     /// The header for this document.
     pub(crate) header: TsonHeader,
     /// Remaining data-bytes to scan.
@@ -44,24 +47,30 @@ impl<'a> TsonStreamReader<'a> {
         header.validate()?;
 
         let def_off = header.blk_definition as usize;
+        let dict_off = header.blk_dict as usize;
         let data_off = header.blk_data as usize;
 
         if def_off > bytes.len() {
             return Err(TsonError::ParseError(format!(
                 "Definition block offset {} exceeds buffer length {}",
-                def_off,
-                bytes.len()
+                def_off, bytes.len()
+            )));
+        }
+        if dict_off > bytes.len() {
+            return Err(TsonError::ParseError(format!(
+                "Dict block offset {} exceeds buffer length {}",
+                dict_off, bytes.len()
             )));
         }
         if data_off > bytes.len() {
             return Err(TsonError::ParseError(format!(
                 "Data block offset {} exceeds buffer length {}",
-                data_off,
-                bytes.len()
+                data_off, bytes.len()
             )));
         }
 
-        let definitions = decode::decode_definitions(&bytes[def_off..data_off])?;
+        let definitions = decode::decode_definitions(&bytes[def_off..dict_off])?;
+        let dict = decode::decode_dict_slice(&bytes[dict_off..data_off])?;
 
         // The data slice starts at data_off. We need to read entry_count
         // (u32 LE) before we start yielding entries.
@@ -76,8 +85,9 @@ impl<'a> TsonStreamReader<'a> {
 
         Ok(Self {
             definitions,
+            dict,
             header,
-            data_slice: &data_bytes[4..], // skip the entry count, point at first entry
+            data_slice: &data_bytes[4..],
             total_entries,
             yielded: 0,
         })
@@ -86,6 +96,12 @@ impl<'a> TsonStreamReader<'a> {
     /// Get a reference to the parsed definitions (the schema).
     pub fn definitions(&self) -> &[TsonDefinition] {
         &self.definitions
+    }
+
+    /// Get a reference to the parsed string dict.
+    #[allow(dead_code)]
+    pub fn dict(&self) -> &[String] {
+        &self.dict
     }
 
     /// Get a reference to the parsed header.
