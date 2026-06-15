@@ -75,6 +75,7 @@ cargo build --release
 |---------|---------|-------------|
 | `std`   | on      | Enables `std::io::Read` helpers and the `IoError` variant. Off → `no_std` + `alloc`. |
 | `json`  | on      | Enables `serde_json`-based `compile_json` / `decompile_to_value`. Off → pure core. |
+| `dict`  | on      | Enables string interning (dict block). When off, all strings are emitted inline — reduces compile memory at the cost of larger output. |
 
 ```bash
 # All features (default)
@@ -85,6 +86,12 @@ cargo build --no-default-features
 
 # Core + std (no JSON bridge)
 cargo build --no-default-features --features std
+
+# Without dict (all strings inline — less compile memory)
+cargo build --no-default-features --features std,json
+
+# Minimal (core only, no std, no json, no dict)
+cargo build --no-default-features --features alloc
 ```
 
 ## Architecture

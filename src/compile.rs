@@ -56,8 +56,14 @@ struct CompileBuilder {
     shape_index: HashMap<String, u16>,
     array_index: HashMap<String, u16>,
     next_idx: u16,
+    /// Strings that have appeared ≥2 times — the output dict.
     dict: Vec<String>,
+    /// String → dict index (only contains strings in `dict`).
+    #[cfg(feature = "dict")]
     dict_map: HashMap<String, u32>,
+    /// Strings seen exactly once so far (not yet in `dict`).
+    #[cfg(feature = "dict")]
+    seen_once: HashMap<String, ()>,
 }
 
 /// Build shape key WITHOUT allocating via `to_string()`.
@@ -73,17 +79,46 @@ fn fast_shape_key(name: &str, tag: u8) -> String {
 impl CompileBuilder {
     fn new() -> Self {
         let prims = primitive_defs();
-        Self { next_idx: prims.len() as u16, defs: prims, shape_index: HashMap::new(), array_index: HashMap::new(), dict: Vec::new(), dict_map: HashMap::new() }
+        Self {
+            next_idx: prims.len() as u16, defs: prims,
+            shape_index: HashMap::new(), array_index: HashMap::new(),
+            dict: Vec::new(),
+            #[cfg(feature = "dict")]
+            dict_map: HashMap::new(),
+            #[cfg(feature = "dict")]
+            seen_once: HashMap::new(),
+        }
     }
 
+        /// Single-pass string interning with **lazy promotion**.
+    ///
+    /// - First occurrence: emit inline `String`, record in `seen_once`.
+    /// - Second occurrence: promote from `seen_once` → `dict`, emit `StrRef`.
+    /// - Third+ occurrences: found in `dict`, emit `StrRef`.
+    ///
+    /// This ensures the output dict only contains strings that actually
+    /// appeared ≥2 times — no unused entries.
+    ///
+    /// When the `dict` feature is disabled, all strings are always emitted
+    /// inline and the output dict is always empty.
     fn emit_string(&mut self, s: &str) -> TsonData {
-        if let Some(&idx) = self.dict_map.get(s) {
-            return TsonData::StrRef(idx);
+        #[cfg(feature = "dict")]
+        {
+            // Fast path: already in the dict (≥2 occurrences so far)
+            if let Some(&idx) = self.dict_map.get(s) {
+                return TsonData::StrRef(idx);
+            }
+            // Second occurrence: promote from seen_once to dict
+            if self.seen_once.contains_key(s) {
+                let idx = self.dict.len() as u32;
+                let owned: String = alloc::string::ToString::to_string(s);
+                self.dict_map.insert(owned.clone(), idx);
+                self.dict.push(owned);
+                return TsonData::StrRef(idx);
+            }
+            // First occurrence: remember and emit inline
+            self.seen_once.insert(alloc::string::ToString::to_string(s), ());
         }
-        let idx = self.dict.len() as u32;
-        let owned: String = alloc::string::ToString::to_string(s);
-        self.dict_map.insert(owned.clone(), idx);
-        self.dict.push(owned);
         TsonData::String(s.into())
     }
 
@@ -187,6 +222,7 @@ impl CompileBuilder {
     fn alloc_def(&mut self) -> u16 { let idx = self.next_idx; self.next_idx += 1; idx }
 
     fn finish(self, chunks: Vec<TsonChunk>) -> Result<TsonDocument, TsonError> {
+        // dict already only contains strings that appeared ≥2 times.
         Ok(TsonDocument { header: TsonHeader::new(1, TsonHeader::SIZE as u32, 0, 0), definitions: self.defs, dict: self.dict, data: chunks })
     }
 }

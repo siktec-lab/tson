@@ -13,7 +13,7 @@
     },
     {
         "id": 2,
-        "name": "Bob",
+        "name": "Charlie",
         "age": 25,
         "address": {
             "street": "456 Elm St",

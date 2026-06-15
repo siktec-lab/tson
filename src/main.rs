@@ -15,6 +15,41 @@ mod decompile;
 
 use std::io::Read;
 
+/// Recursively format a TsonData value for display.
+fn format_tson_data(data: &tson::TsonData, indent: usize) -> String {
+    use tson::TsonData;
+    match data {
+        TsonData::Null => "null".to_string(),
+        TsonData::Bool(b) => format!("{}", b),
+        TsonData::Int(i) => format!("{}", i),
+        TsonData::UInt(u) => format!("{}", u),
+        TsonData::Float(f) => format!("{:.2}", f),
+        TsonData::String(s) => {
+            if s.len() > 40 { format!("\"{}…\"({}B)", &s[..40], s.len()) }
+            else { format!("\"{}\"", s) }
+        }
+        TsonData::StrRef(idx) => format!("StrRef({})", idx),
+        TsonData::Array(_, _, items) => {
+            let pad = "  ".repeat(indent + 1);
+            let mut out = format!("Array[{}]", items.len());
+            for item in items.iter().take(5) {
+                out.push_str(&format!("\n{}  {}", pad, format_tson_data(item, indent + 1)));
+            }
+            if items.len() > 5 { out.push_str(&format!("\n{}  … +{} more", pad, items.len() - 5)); }
+            out
+        }
+        TsonData::Object(_, fields) => {
+            let pad = "  ".repeat(indent + 1);
+            let mut out = format!("Object({} fields)", fields.len());
+            for field in fields.iter().take(8) {
+                out.push_str(&format!("\n{}  {}", pad, format_tson_data(field, indent + 1)));
+            }
+            if fields.len() > 8 { out.push_str(&format!("\n{}  … +{} more", pad, fields.len() - 8)); }
+            out
+        }
+    }
+}
+
 fn is_json_file_name(file_name: &str) -> bool {
     file_name.ends_with(".json")
 }
@@ -74,33 +109,50 @@ fn main() {
 
         match tson::TsonStreamReader::new(&buf) {
             Ok(reader) => {
+                // ── Header ────────────────────────────────────────
                 println!("Header version: {}", reader.header().version);
                 println!(
-                    "Def block offset: {}, Data block offset: {}",
+                    "  Def offset: {}   Dict offset: {}   Data offset: {}",
                     reader.header().blk_definition,
+                    reader.header().blk_dict,
                     reader.header().blk_data
                 );
+
+                // ── Definitions ───────────────────────────────────
                 println!("Definitions: {}", reader.definitions().len());
                 for def in reader.definitions() {
-                    println!("  Def #{}: {:?}", def.index, def.def_type);
+                    print!("  #{}: {:?}", def.index, def.def_type);
                     if let Some(ref fields) = def.fields {
+                        print!(" ({} fields)", fields.len());
                         for (name, ftype) in fields {
-                            println!("    - {name}: {:?}", ftype);
+                            print!(" {}:{:?}", name, ftype);
                         }
                     }
+                    if let Some(et) = def.elem_type {
+                        print!(" <{:?}>", et);
+                    }
+                    println!();
                 }
+
+                // ── Dict block ────────────────────────────────────
+                let dict = reader.dict();
+                println!("Dict entries: {}", dict.len());
+                for (i, s) in dict.iter().enumerate() {
+                    let truncated = if s.len() > 60 { format!("{}…({}B)", &s[..60], s.len()) } else { s.clone() };
+                    println!("  [{}] {}", i, truncated);
+                }
+
+                // ── Data entries (stream) ─────────────────────────
                 println!("Entries (streaming):");
+                let mut entry_idx = 0u32;
                 for result in reader {
                     match result {
                         Ok(chunk) => {
-                            println!(
-                                "  Entry[def={}]: {:?}",
-                                chunk.definition_index,
-                                chunk.data.type_tag()
-                            );
+                            println!("  [{}] def=#{}: {}", entry_idx, chunk.definition_index, format_tson_data(&chunk.data, 4));
+                            entry_idx += 1;
                         }
                         Err(e) => {
-                            eprintln!("Stream error: {e}");
+                            eprintln!("  Stream error: {e}");
                             break;
                         }
                     }

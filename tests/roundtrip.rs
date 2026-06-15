@@ -248,6 +248,72 @@ mod roundtrip_tests {
         assert!(doc.definitions.len() >= 7, "need primitives + object");
     }
 
+    // ── Dict / string interning edge cases ──────────────────────────
+
+    #[test]
+    #[cfg(feature = "dict")]
+    fn dict_empty_when_no_duplicate_strings() {
+        // 24 unique strings, 0 duplicates → dict should be empty
+        let json = r#"{
+            "users": [
+                {"name": "Alice",   "role": "admin"},
+                {"name": "Bob",     "role": "editor"},
+                {"name": "Charlie", "role": "viewer"}
+            ]
+        }"#;
+        let doc = tson::compile_json(json).unwrap();
+        assert_eq!(doc.dict.len(), 0,
+            "Expected empty dict (no repeated strings), got {} entries: {:?}",
+            doc.dict.len(), &doc.dict);
+    }
+
+    #[test]
+    #[cfg(feature = "dict")]
+    fn dict_only_contains_repeated_strings() {
+        // "Charlie" appears twice — only Charlie should be in the dict
+        let json = r#"{
+            "users": [
+                {"name": "Alice",   "role": "admin"},
+                {"name": "Charlie", "role": "admin"},
+                {"name": "Charlie", "role": "user"}
+            ]
+        }"#;
+        let doc = tson::compile_json(json).unwrap();
+        let dict_strs: Vec<&str> = doc.dict.iter().map(|s| s.as_str()).collect();
+        assert!(dict_strs.contains(&"Charlie"), "Charlie should be in dict (appears ≥2 times)");
+        assert!(dict_strs.contains(&"admin"),   "admin should be in dict (appears ≥2 times)");
+        assert!(!dict_strs.contains(&"Alice"),  "Alice should NOT be in dict (appears once)");
+        assert!(!dict_strs.contains(&"user"),   "user should NOT be in dict (appears once)");
+    }
+
+    #[test]
+    #[cfg(feature = "dict")]
+    fn strref_roundtrip_preserves_all_values() {
+        // Verifies that even with dict, all values survive encode→decode
+        let json = r#"{"names": ["Alice", "Bob", "Alice", "Charlie", "Bob"]}"#;
+        let doc = tson::compile_json(json).unwrap();
+        let bytes = tson::to_bytes(&doc).unwrap();
+        let restored = tson::from_bytes(&bytes).unwrap();
+        let value = tson::decompile_to_value(&restored).unwrap();
+        let expected: serde_json::Value = serde_json::from_str(json).unwrap();
+        assert_eq!(value, expected, "Round-trip with dict should preserve all values");
+    }
+
+    #[test]
+    #[cfg(feature = "dict")]
+    fn strref_doc_contains_both_inline_and_strref() {
+        // After compile, the TsonData tree should contain StrRef for repeated
+        // strings and inline String for unique strings
+        let json = r#"["Alice", "Bob", "Alice"]"#;
+        let doc = tson::compile_json(json).unwrap();
+        assert!(!doc.dict.is_empty(), "Dict should have entries (Alice repeats)");
+        // Decode round-trip confirms correctness
+        let bytes = tson::to_bytes(&doc).unwrap();
+        let back = tson::from_bytes(&bytes).unwrap();
+        let val = tson::decompile_to_value(&back).unwrap();
+        assert_eq!(val.as_array().unwrap().len(), 3);
+    }
+
     // ── Streaming reader ─────────────────────────────────────────────
 
     #[test]

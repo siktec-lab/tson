@@ -26,9 +26,10 @@ name = "comp-bench"
 path = "src/bin/comp_bench.rs"
 
 [features]
-default = ["std", "json"]
+default = ["std", "json", "dict"]
 std = []
 json = ["serde", "serde_json"]
+dict = []
 
 [dependencies]
 thiserror = "2.0"
