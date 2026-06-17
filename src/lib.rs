@@ -1,14 +1,14 @@
-//! # TSON — Terse JSON Binary Format
+//! # TSON - Terse JSON Binary Format
 //!
 //! A compact binary format for JSON data, designed for microcontrollers and
 //! constrained environments.
 //!
 //! ## Feature flags
 //!
-//! - `std` (default on) — enables `std::io`-based helpers and the `IoError`
+//! - `std` (default on) - enables `std::io`-based helpers and the `IoError`
 //!   variant in `TsonError`.  When disabled, the library is `no_std` and only
 //!   requires the `alloc` crate.
-//! - `json` (default on) — enables JSON ↔ TSON compilation via `serde_json`.
+//! - `json` (default on) - enables JSON ↔ TSON compilation via `serde_json`.
 //!
 //! ## Quick start
 //!
@@ -27,24 +27,24 @@
 
 extern crate alloc;
 
-// ─── Module declarations (all at root level) ────────────────────────────────
+// Module declarations (all at root level)
 
 pub mod error;
 pub mod tson;
 
-// Core modules — no_std compatible (only require alloc)
+// Core modules - no_std compatible (only require alloc)
 pub mod structure;
 pub mod encode;
 pub mod decode;
 pub mod stream;
 
-// JSON interop — requires serde_json (gated behind `json` feature)
+// JSON interop - requires serde_json (gated behind `json` feature)
 #[cfg(feature = "json")]
 pub mod compile;
 #[cfg(feature = "json")]
 pub mod decompile;
 
-// ─── Root-level re-exports from `tson` module ─────────────────────────────
+// Root-level re-exports from `tson` module
 
 pub use tson::{
     TsonChunk, TsonData, TsonDefinition, TsonDocument, TsonHeader, TsonType,
@@ -52,12 +52,12 @@ pub use tson::{
 };
 pub use stream::TsonStreamReader;
 
-// ─── Python bindings (optional, behind `python` feature) ─────────────────
+// Python bindings (optional, behind `python` feature)
 
 #[cfg(feature = "python")]
 pub mod python;
 
-// ─── Node.js bindings (optional, behind `nodejs` feature) ────────────────
+// Node.js bindings (optional, behind `nodejs` feature)
 
 #[cfg(feature = "nodejs")]
 pub mod nodejs;

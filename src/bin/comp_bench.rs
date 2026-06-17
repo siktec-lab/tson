@@ -35,7 +35,7 @@ fn main() {
     let mut _check = 0usize;
     let mut total = 0f64;
 
-    // ── 1. serde_json parse (baseline) ────────────────────────
+    // 1. serde_json parse (baseline)
     let start = Instant::now();
     for _ in 0..ITERS {
         let v: serde_json::Value = serde_json::from_str(&json_text).unwrap();
@@ -44,7 +44,7 @@ fn main() {
     let json_parse_ns = start.elapsed().as_nanos() as f64 / ITERS as f64;
     total += json_parse_ns;
 
-    // ── 2. TSON compile (JSON → TsonDocument) ─────────────────
+    // 2. TSON compile (JSON -> TsonDocument)
     let start = Instant::now();
     let mut doc = None;
     for i in 0..ITERS {
@@ -55,7 +55,7 @@ fn main() {
     total += compile_ns;
     let doc = doc.unwrap();
 
-    // ── 3. TSON encode (TsonDocument → Vec<u8>) ───────────────
+    // 3. TSON encode (TsonDocument -> Vec<u8>)
     let start = Instant::now();
     let mut bytes = None;
     for i in 0..ITERS {
@@ -66,7 +66,7 @@ fn main() {
     total += encode_ns;
     let bytes = bytes.unwrap();
 
-    // ── 4. TSON decode (Vec<u8> → TsonDocument) ───────────────
+    // 4. TSON decode (Vec<u8> -> TsonDocument)
     let start = Instant::now();
     let mut decoded = None;
     for i in 0..ITERS {
@@ -77,7 +77,7 @@ fn main() {
     total += decode_ns;
     let decoded = decoded.unwrap();
 
-    // ── 5. TSON decompile (TsonDocument → serde_json::Value) ──
+    // 5. TSON decompile (TsonDocument -> serde_json::Value)
     let start = Instant::now();
     for i in 0..ITERS {
         let v = tson::decompile_to_value(&decoded).unwrap();
@@ -86,7 +86,7 @@ fn main() {
     let decompile_ns = start.elapsed().as_nanos() as f64 / ITERS as f64;
     total += decompile_ns;
 
-    // ── 6. Streaming reader (header+defs+stream N entries) ────
+    // 6. Streaming reader (header+defs+stream N entries)
     let start = Instant::now();
     for _ in 0..ITERS {
         let mut reader = tson::TsonStreamReader::new(&bytes).unwrap();
@@ -98,7 +98,7 @@ fn main() {
     let stream_ns = start.elapsed().as_nanos() as f64 / ITERS as f64;
     total += stream_ns;
 
-    // ── 7. Full round-trip (compile+encode+decode+decompile) ─
+    // 7. Full round-trip (compile+encode+decode+decompile)
     let start = Instant::now();
     for _ in 0..ITERS {
         let d = tson::compile_json(&json_text).unwrap();
@@ -108,13 +108,13 @@ fn main() {
     }
     let roundtrip_ns = start.elapsed().as_nanos() as f64 / ITERS as f64;
 
-    // ── Counts ──────────────────────────────────────────────────
+    // Counts
     let entry_count: usize = doc.data.iter().map(|c| count_leaves(&c.data)).sum::<usize>().max(1);
     let def_count = doc.definitions.len();
     let dict_count = doc.dict.len();
     let tson_size = bytes.len();
 
-    // ── Print table ──────────────────────────────────────────────
+    // Print table
     println!();
     println!("╔═══════════════════════════════════════════════════════╗");
     println!("║  TSON Detailed Performance Comparison                  ║");
@@ -139,21 +139,21 @@ fn main() {
     println!("╚══════════════════════╧══════════════════════════════════╝");
 
     println!();
-    println!("  ── Observations ──");
+    println!("  -- Observations --");
     println!("  * JSON parse alone dominates ({:.0}% of per-op budget)", json_parse_ns / total * 100.0);
     println!("  * TSON overhead = compile ({:.0}%) + encode/decode ({:.0}%+{:.0}%)",
         compile_ns / total * 100.0, encode_ns / total * 100.0, decode_ns / total * 100.0);
     println!("  * Streaming reader loads defs+dict once, then O(1) per entry");
     println!("  * TSON binary is {:.1}% the size of the original JSON", tson_size as f64 / json_size as f64 * 100.0);
     if dict_count > 0 {
-        println!("  * Dict has {} entries — string interning saved repeated strings", dict_count);
+        println!("  * Dict has {} entries - string interning saved repeated strings", dict_count);
     }
 
-    // ── Field access benchmarks ──────────────────────────────────────
+    // Field access benchmarks
     println!();
-    println!("  ── Field Access Performance ──");
+    println!("  -- Field Access Performance --");
 
-    // data.values() — zero-lookup slice access
+    // data.values() - zero-lookup slice access
     let start = Instant::now();
     for _ in 0..ITERS {
         for entry in doc.entries() {
@@ -171,7 +171,7 @@ fn main() {
     let len_ns = start.elapsed().as_nanos() as f64 / ITERS as f64;
     println!("  * first_entry().data.len(): {:.1} ns", len_ns);
 
-    // doc.get("name") — field lookup by name (Object roots only)
+    // doc.get("name") - field lookup by name (Object roots only)
     if let Some(_name_val) = doc.get("name") {
         let start = Instant::now();
         for _ in 0..ITERS {
@@ -180,7 +180,7 @@ fn main() {
         let get_ns = start.elapsed().as_nanos() as f64 / ITERS as f64;
         println!("  * doc.get(\"name\"): {:.1} ns", get_ns);
 
-        // data.field() — nested field lookup
+        // data.field() - nested field lookup
         if let Some(addr) = doc.get("address") {
             let start = Instant::now();
             for _ in 0..ITERS {

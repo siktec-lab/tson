@@ -22,7 +22,7 @@ The format is designed for microcontrollers and constrained environments: the de
 ├──────────────────────────────────────────────────────┤
 │  DICT BLOCK (string interning)                        │
 │  [entry_count:u32 LE]                                 │
-│    [str_len:hybrid][UTF-8 bytes]  × N                 │
+│    [str_len:hybrid][UTF-8 bytes]  x N                 │
 ├──────────────────────────────────────────────────────┤
 │  DATA BLOCK                                           │
 │  [entry_count:u32 LE]                                 │
@@ -57,11 +57,11 @@ The byte range `[def_off .. dict_off)` is the definition block. The range `[dict
 | 0x02 | Int    | 4 B       | Signed i32, little-endian |
 | 0x03 | UInt   | 4 B       | Unsigned u32, little-endian |
 | 0x04 | Float  | 4 B       | IEEE 754 binary32, little-endian |
-| 0x05 | String | variable  | Length-prefixed UTF-8 with hybrid encoding (see §4.3). This type tag is also used for StrRef payloads — the distinction is made per-value via a sentinel byte. |
+| 0x05 | String | variable  | Length-prefixed UTF-8 with hybrid encoding (see §4.3). This type tag is also used for StrRef payloads - the distinction is made per-value via a sentinel byte. |
 | 0x10 | Array  | variable  | Ordered list of same-type elements |
 | 0x11 | Object | variable  | Key-value pairs whose schema is in a definition |
 
-Tags 0x00–0x05 are **primitive**. Tags 0x10–0x11 are **compound**. There is no separate StrRef type tag — string interning is handled within the String payload via the sentinel value `0xFF`.
+Tags 0x00–0x05 are **primitive**. Tags 0x10–0x11 are **compound**. There is no separate StrRef type tag - string interning is handled within the String payload via the sentinel value `0xFF`.
 
 ---
 
@@ -89,12 +89,12 @@ Every definition begins with:
 
 ```
 [field_count: u16 LE]
-[name_len: u8][name: UTF-8][field_type: u8]  × field_count
+[name_len: u8][name: UTF-8][field_type: u8]  x field_count
 ```
 
 Fields are stored in **canonical order** (alphabetically by field name) so that the same logical schema produces identical byte representations for deduplication.
 
-**Example** — Definition #6 for `{id: Int, name: String}`:
+**Example** - Definition #6 for `{id: Int, name: String}`:
 
 ```
 type = 0x11     (Object)
@@ -110,7 +110,7 @@ field_count = 2
 [elem_type: u8]
 ```
 
-**Example** — Definition #7 for an array of strings:
+**Example** - Definition #7 for an array of strings:
 
 ```
 type = 0x10     (Array)
@@ -141,11 +141,11 @@ Always present:
 [entry_count: u32 LE]
 ```
 
-Number of interned strings. Zero when no strings appeared ≥2 times in the document (lazy-promotion — see §4.2).
+Number of interned strings. Zero when no strings appeared ≥2 times in the document (lazy-promotion - see §4.2).
 
 ### 4.2 Lazy-Promotion Rule
 
-Strings are added to the dict only when they appear for the **second time** during compilation. The first occurrence is always emitted as an inline string. This guarantees the dict never contains strings that appear only once — there is zero wasted space from unique strings.
+Strings are added to the dict only when they appear for the **second time** during compilation. The first occurrence is always emitted as an inline string. This guarantees the dict never contains strings that appear only once - there is zero wasted space from unique strings.
 
 ### 4.3 Dict String Encoding
 
@@ -207,19 +207,19 @@ String payloads use a **self-describing length prefix**:
 | `0xFE` | 4 B | 16 777 215 B | `[0xFE][u24 LE][UTF-8]` |
 | `0xFF` | 5 B | (StrRef) | `[0xFF][dict_idx: u32 LE]` |
 
-Bytes `0xC0–0xFD` are reserved for future extensions. The sentinel `0xFF` converts the payload from inline string data to a dict index — the decoder reads the next 4 bytes as a `u32 LE` dict index and resolves it against the dict block.
+Bytes `0xC0–0xFD` are reserved for future extensions. The sentinel `0xFF` converts the payload from inline string data to a dict index - the decoder reads the next 4 bytes as a `u32 LE` dict index and resolves it against the dict block.
 
 **Rationale**:
-- Small strings (≤127 B) cost 1 byte overhead — common for field values like "CA", "Anytown", names.
+- Small strings (≤127 B) cost 1 byte overhead - common for field values like "CA", "Anytown", names.
 - Medium strings (≤16 KB) cost 2 bytes.
-- Large strings (≤16 MB) cost 4 bytes — handles base64 blobs and large text.
-- StrRef overhead is 5 bytes (1 sentinel + 4 index) — always wins over inline for strings ≥5 bytes on the second+ occurrence.
+- Large strings (≤16 MB) cost 4 bytes - handles base64 blobs and large text.
+- StrRef overhead is 5 bytes (1 sentinel + 4 index) - always wins over inline for strings ≥5 bytes on the second+ occurrence.
 
 **Examples**:
 ```
-"hi"       → [02][68 69]                          (inline, 4 B total)
-"CA"       → [02][43 41]                          (inline, 4 B total)
-0xFF + 42  → [FF][2A 00 00 00]                   (StrRef, dict[42])
+"hi"       -> [02][68 69]                          (inline, 4 B total)
+"CA"       -> [02][43 41]                          (inline, 4 B total)
+0xFF + 42  -> [FF][2A 00 00 00]                   (StrRef, dict[42])
 "temperature" (11 B), interned: [FF][idx]         (StrRef, 5 B on wire)
 "temperature" (11 B), not interned: [0B][74 65…]  (inline, 12 B total)
 ```
@@ -232,7 +232,7 @@ Bytes `0xC0–0xFD` are reserved for future extensions. The sentinel `0xFF` conv
 
 Field values are concatenated in definition field order. Each field value is encoded per its declared type.
 
-**Example** — Object #6 (id: Int, name: String) with `id=1, name="Alice"`:
+**Example** - Object #6 (id: Int, name: String) with `id=1, name="Alice"`:
 
 ```
 [self_def = 0x0006]          (2 B)
@@ -251,7 +251,7 @@ payload_len = 2 + 4 + 6 = 12
 [self_def_index: u16 LE] [elem_def_index: u16 LE] [elem_count: u16 LE] [element] [element] …
 ```
 
-**Example** — Array #7 (String elements) with `["read", "ski"]`:
+**Example** - Array #7 (String elements) with `["read", "ski"]`:
 
 ```
 [self_def = 0x0007]          (2 B)
@@ -293,7 +293,7 @@ Compound definitions start at index 6.
 ## 8. Design Constraints
 
 ### 8.1 Homogeneous Arrays
-TSON arrays are typed by element. JSON allows mixed types (`[1, "two", null]`). Mixed-type arrays are not supported — the compiler determines a single element type from the first non-null entry.
+TSON arrays are typed by element. JSON allows mixed types (`[1, "two", null]`). Mixed-type arrays are not supported - the compiler determines a single element type from the first non-null entry.
 
 ### 8.2 Float Precision
 Binary32 provides ~7 significant digits. Values like `3.14` or `1.5e10` will not round-trip exactly.
@@ -308,10 +308,10 @@ Maximum element count per array: 65,535 (`u16`). Maximum field count per object:
 
 ## 9. Streaming Rationale
 
-The definition and dict blocks carry the complete schema and string table — typically tens to hundreds of bytes. Once parsed into memory, the data block can be consumed entry-by-entry:
+The definition and dict blocks carry the complete schema and string table - typically tens to hundreds of bytes. Once parsed into memory, the data block can be consumed entry-by-entry:
 
 1. Read 6-byte entry header: `[def_index:u16][payload_len:u32]`
-2. Jump `def_index` → definition table → know the exact structure
+2. Jump `def_index` -> definition table -> know the exact structure
 3. Read exactly `payload_len` bytes of payload
 4. Decode the payload using the definition as a schema
 5. Yield the entry. Move to the next one.

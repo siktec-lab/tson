@@ -1,4 +1,4 @@
-# TSON — Terse JSON Binary Format
+# TSON - Terse JSON Binary Format
 
 A compact, schema-deduplicated binary format for JSON data, built for microcontrollers and constrained environments.
 
@@ -24,19 +24,19 @@ JSON (890 bytes)               TSON binary (~374 bytes)
                                 │   repeated strings)
                                 ├── Data block (252 B)
                                 │   Entry #9: 3 elements
-                                │     [0]: #8 → 1, "Alice", 30…
-                                │     [1]: #8 → 2, "Bob",   25…
-                                │     [2]: #8 → 3, "Charlie",35…
+                                │     [0]: #8 -> 1, "Alice", 30…
+                                │     [1]: #8 -> 2, "Bob",   25…
+                                │     [2]: #8 -> 3, "Charlie",35…
                                 └── (end)
 ```
 
 ## Features
 
 - **Zero-dependency core**: encode/decode/stream on `&[u8]` slices, only needs `alloc`.
-- **Streaming reader**: loads the tiny definition + dict blocks into memory, then yields data entries one-at-a-time — `O(1)` memory per entry.
+- **Streaming reader**: loads the tiny definition + dict blocks into memory, then yields data entries one-at-a-time - `O(1)` memory per entry.
 - **Schema deduplication**: identical object shapes share one definition. Field names stored once.
-- **String interning** (`dict` feature): repeated strings stored once in a dict block. `StrRef` points to them instead of repeating inline. Only strings that appear ≥2 times are included — no waste.
-- **Hybrid string encoding**: short strings (≤127 B) use 1-byte length, medium strings 2 bytes, long strings 4 bytes — saves space over flat u32.
+- **String interning** (`dict` feature): repeated strings stored once in a dict block. `StrRef` points to them instead of repeating inline. Only strings that appear ≥2 times are included - no waste.
+- **Hybrid string encoding**: short strings (≤127 B) use 1-byte length, medium strings 2 bytes, long strings 4 bytes - saves space over flat u32.
 - **`no_std` capable**: disable the `std` feature for embedded targets.
 - **Optional JSON bridge**: `serde_json`-based compile/decompile behind the `json` feature.
 - **Self-describing wire format**: every compound value carries its definition index, enabling forward compatibility and partial decoding.
@@ -47,11 +47,11 @@ JSON (890 bytes)               TSON binary (~374 bytes)
 // Round-trip a JSON string through TSON binary
 let json = r#"{"name":"Alice","age":30}"#;
 
-// JSON → TSON document → binary
+// JSON -> TSON document -> binary
 let doc = tson::compile_json(json).unwrap();
 let bytes = tson::to_bytes(&doc).unwrap();
 
-// Binary → TSON document → JSON
+// Binary -> TSON document -> JSON
 let restored = tson::from_bytes(&bytes).unwrap();
 let value = tson::decompile_to_value(&restored).unwrap();
 
@@ -72,7 +72,7 @@ let reading = TsonData::Object(0, vec![
     TsonData::String("nominal".to_string()), // status
 ]);
 
-// Emit as TSON binary — no JSON parse step
+// Emit as TSON binary - no JSON parse step
 let bytes = emit(&reading).unwrap();
 
 // Decode back
@@ -83,9 +83,9 @@ let value = tson::decompile_to_value(&doc).unwrap();
 
 Field names are synthetic (`"f0"`, `"f1"`, …) since `TsonData` values don't carry names. Definitions and the string dict are discovered automatically from the value tree.
 
-## Server Response Path — `emit_with_context()`
+## Server Response Path - `emit_with_context()`
 
-Reuse an incoming document's definitions and dict to emit a response — no schema re-discovery, no dict rebuild.
+Reuse an incoming document's definitions and dict to emit a response - no schema re-discovery, no dict rebuild.
 
 ```rust
 use tson::{TsonData, emit_with_context};
@@ -99,7 +99,7 @@ let bytes = emit_with_context(&response, &incoming_defs, &incoming_dict).unwrap(
 
 Field values must be in **definition field order** (alphabetical).
 
-## Direct Field Access — `doc.get()`, `doc.index()`, `doc.get_by_index()`
+## Direct Field Access - `doc.get()`, `doc.index()`, `doc.get_by_index()`
 
 Extract values without decompiling to JSON. O(1) access when you pre-resolve field indices:
 
@@ -117,7 +117,7 @@ for _ in 0..1000 {
 }
 ```
 
-## Multi-Document Stream — `TsonDocReader`
+## Multi-Document Stream - `TsonDocReader`
 
 Read length-prefixed TSON documents from any byte source (archives, TCP streams).
 
@@ -138,10 +138,10 @@ Each document is prefixed by a 4-byte LE length `u32` followed by the TSON binar
 # Build
 cargo build --release
 
-# Compile JSON → TSON binary
+# Compile JSON -> TSON binary
 ./target/release/tson-cli data.json         # writes data.tson
 
-# Decompile TSON → pretty JSON
+# Decompile TSON -> pretty JSON
 ./target/release/tson-cli data.tson         # prints JSON to stdout
 
 # Stream-debug (inspect header, defs, dict, entries)
@@ -152,9 +152,9 @@ cargo build --release
 
 | Feature | Default | Description |
 |---------|---------|-------------|
-| `std`   | on      | Enables `std::io::Read` helpers and the `IoError` variant. Off → `no_std` + `alloc`. |
-| `json`  | on      | Enables `serde_json`-based `compile_json` / `decompile_to_value`. Off → pure core. |
-| `dict`  | on      | Enables string interning (dict block). Strings appearing ≥2 times get `StrRef` instead of inline copies. When off, all strings are emitted inline — reduces compile memory at the cost of larger output. |
+| `std`   | on      | Enables `std::io::Read` helpers and the `IoError` variant. Off -> `no_std` + `alloc`. |
+| `json`  | on      | Enables `serde_json`-based `compile_json` / `decompile_to_value`. Off -> pure core. |
+| `dict`  | on      | Enables string interning (dict block). Strings appearing ≥2 times get `StrRef` instead of inline copies. When off, all strings are emitted inline - reduces compile memory at the cost of larger output. |
 
 ```bash
 # All features (default)
@@ -166,7 +166,7 @@ cargo build --no-default-features
 # Core + std (no JSON bridge, no dict)
 cargo build --no-default-features --features std
 
-# Without dict (all strings inline — less compile memory)
+# Without dict (all strings inline - less compile memory)
 cargo build --no-default-features --features std,json
 ```
 
@@ -196,7 +196,7 @@ All core modules (`structure`, `encode`, `decode`, `stream`) operate on `&[u8]` 
 
 The project includes two benchmark tools.
 
-### `tson-bench` — Compression Summary
+### `tson-bench` - Compression Summary
 
 Scans `examples/` for `.json` files, compiles each to TSON, reports compression ratios with dict size and leaf entry counts.
 
@@ -218,7 +218,7 @@ cargo run --release --bin tson-bench -- --perf        # + p50/p99 timing
 ╚══════════════════════╧══════════╧══════════╧══════════╧══════════╧══════════╧═════════╝
 ```
 
-### `comp-bench` — Detailed Performance Breakdown
+### `comp-bench` - Detailed Performance Breakdown
 
 Measures 7 independent workloads: JSON parse, compile, encode, decode, decompile, streaming read, and full round-trip.
 
@@ -243,15 +243,15 @@ cargo run --release --bin comp-bench -- examples/telemetry.json
 ```
 
 ### Observations
-- **Compile dominates** (~47% of per-op time) — schema discovery + string interning + definition building.
-- **Decode is competitive** with JSON parse (2.4µs vs 3.2µs) — cached definitions and O(1) index lookups.
-- **Streaming is the fastest operation** (1.9µs) — loads defs+dict once, then yields entries without allocation.
-- **Dict is empty for unique-only documents** — lazy-promotion ensures no waste. Only strings appearing ≥2 times are included.
+- **Compile dominates** (~47% of per-op time) - schema discovery + string interning + definition building.
+- **Decode is competitive** with JSON parse (2.4µs vs 3.2µs) - cached definitions and O(1) index lookups.
+- **Streaming is the fastest operation** (1.9µs) - loads defs+dict once, then yields entries without allocation.
+- **Dict is empty for unique-only documents** - lazy-promotion ensures no waste. Only strings appearing ≥2 times are included.
 - **70%+ savings** on large repetitive telemetry (500 sensor readings with 6 repeated field names per reading).
 
 ## Why TSON? Comparison with Other Formats
 
-TSON occupies a unique position in the binary JSON landscape — it is neither a general-purpose serializer nor a schema-first code generator. It compiles JSON into a **self-describing, compressed binary** that is optimized for *decoding on constrained devices*.
+TSON occupies a unique position in the binary JSON landscape - it is neither a general-purpose serializer nor a schema-first code generator. It compiles JSON into a **self-describing, compressed binary** that is optimized for *decoding on constrained devices*.
 
 ### Size Comparison
 
@@ -294,7 +294,7 @@ For repetitive structured data, TSON achieves **60-70% compression** by deduplic
 
 ### Key Insight
 
-**TSON trades compile time for decode efficiency.** The compiler does the heavy lifting — discovering schemas, interning strings, building definitions — so that the decoder on a microcontroller can process data without allocating field names and strings. For a server compiling millions of telemetry packets, the compile cost is amortized. For the microcontroller decoding thousands of entries, the memory savings and allocation-free path are transformative.
+**TSON trades compile time for decode efficiency.** The compiler does the heavy lifting - discovering schemas, interning strings, building definitions - so that the decoder on a microcontroller can process data without allocating field names and strings. For a server compiling millions of telemetry packets, the compile cost is amortized. For the microcontroller decoding thousands of entries, the memory savings and allocation-free path are transformative.
 
 ## Security
 
@@ -302,7 +302,7 @@ TSON prioritizes safe decoding of untrusted input. The reference implementation 
 
 - **Bounds-checked reads**: every byte access is guarded, no panics on malformed input.
 - **OOM caps**: entry count (1M max), definition count (2048 max), fields per object (256 max).
-- **Recursion guard**: nesting depth limited to 128 — prevents stack overflow from circular definitions.
+- **Recursion guard**: nesting depth limited to 128 - prevents stack overflow from circular definitions.
 - **UTF-8 validation**: all string data is validated; invalid sequences are rejected.
 - **Header validation**: offsets checked for consistency before use (def ≥ 13, dict ≥ def, data ≥ dict).
 

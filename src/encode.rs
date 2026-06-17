@@ -15,20 +15,20 @@ use crate::structure::*;
 ///
 /// # Design rationale
 ///
-/// - **Small strings dominate** — names, IDs, and status codes are usually
+/// - **Small strings dominate** - names, IDs, and status codes are usually
 ///   under 128 bytes.  A 1-byte length head saves 3 bytes per short string
 ///   compared to a flat u32.
-/// - **Self-describing** — the decoder only needs the first byte to decide
+/// - **Self-describing** - the decoder only needs the first byte to decide
 ///   how many more to read.  No cross-entry state, no mode switches.
-/// - **Streaming-safe** — every value carries its own encoding; no need to
+/// - **Streaming-safe** - every value carries its own encoding; no need to
 ///   have decoded a previous entry to know the length width of the current
 ///   one.
-/// - **Sentinel for StrRef** — `0xFF` is reserved as the dict-index marker.
-///   A real string of exactly 0xFF bytes cannot be stored inline — it must
+/// - **Sentinel for StrRef** - `0xFF` is reserved as the dict-index marker.
+///   A real string of exactly 0xFF bytes cannot be stored inline - it must
 ///   be interned into the dict (the compiler always does this for large
 ///   strings anyway).
 
-// ─── String encoding helpers ───────────────────────────────────────────────
+// String encoding helpers
 
 const STRREF_SENTINEL: u8 = 0xFF;
 const LONG_TAG: u8 = 0xFE;
@@ -60,7 +60,7 @@ fn encode_str_ref(buf: &mut Vec<u8>, idx: u32) {
     buf.extend_from_slice(&idx.to_le_bytes());
 }
 
-// ─── Document ───────────────────────────────────────────────────────────────
+// Document
 
 pub fn encode_document(doc: &TsonDocument) -> Result<Vec<u8>, TsonError> {
     let mut buf = Vec::new();

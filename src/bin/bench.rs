@@ -14,7 +14,7 @@ use std::time::Instant;
 const EXAMPLES_DIR: &str = "examples";
 const PERF_ITERATIONS: u32 = 200;
 
-/// Count total "leaf" entries — the number of individual data objects in a
+/// Count total "leaf" entries - the number of individual data objects in a
 /// TsonData tree. For a root array of objects, this recurses into the array's
 /// elements to count each object.
 fn count_entries(data: &tson::TsonData) -> usize {
@@ -97,15 +97,15 @@ fn main() {
 
     println!("\n  Compression: {:.1}% of original size ({:.1}% savings).", overall_ratio, 100.0 - overall_ratio);
 
-    println!("\n  ── Observations ──");
-    println!("  * Field names stored once in the definition block — never repeated.");
+    println!("\n  -- Observations --");
+    println!("  * Field names stored once in the definition block - never repeated.");
     println!("  * Identical object shapes share a single definition (deduplication).");
-    println!("  * Dict block stores unique strings once — StrRef replaces inline on repeat.");
+    println!("  * Dict block stores unique strings once - StrRef replaces inline on repeat.");
     println!("  * Primitives (int, float, bool, null, string) stored as raw bytes.");
-    println!("  * The definition + dict blocks are small — ideal for microcontroller RAM.");
+    println!("  * The definition + dict blocks are small - ideal for microcontroller RAM.");
 
     if perf_mode {
-        println!("\n  ── Performance (p50 / p99 compile latency) ──");
+        println!("\n  -- Performance (p50 / p99 compile latency) --");
         run_perf_bench(&entries);
     }
 }

@@ -37,7 +37,7 @@ function jsonEq(a, b, msg) {
     assert.deepStrictEqual(JSON.parse(JSON.stringify(a)), JSON.parse(JSON.stringify(b)), msg);
 }
 
-// ── Round-trip tests ──────────────────────────────────────────────────
+// Round-trip tests
 
 test('dumps/loads simple object', () => {
     const buf = dumps('{"name":"Alice","age":30}');
@@ -69,7 +69,7 @@ test('dumps/loads null and bool', () => {
     assert.strictEqual(obj.f, false);
 });
 
-// ── File I/O tests ────────────────────────────────────────────────────
+// File I/O tests
 
 test('dump/load file round-trip', () => {
     const tmp = path.join(os.tmpdir(), `tson-test-${Date.now()}.tson`);
@@ -84,7 +84,7 @@ test('dump/load file round-trip', () => {
     }
 });
 
-// ── Emit tests ────────────────────────────────────────────────────────
+// Emit tests
 
 test('emit object returns valid TSON', () => {
     const buf = emit({ temp: 22.5, unit: 'C' });
@@ -99,13 +99,13 @@ test('emit array returns valid TSON', () => {
     jsonEq(obj, [1, 2, 3], 'emit array round-trip');
 });
 
-// ── Error handling ────────────────────────────────────────────────────
+// Error handling
 
 test('dumps invalid JSON throws', () => {
     assert.throws(() => dumps('not json'), /error/i);
 });
 
-// ── Summary ───────────────────────────────────────────────────────────
+// Summary
 
 console.log(`\n  ${passed} passed, ${failed} failed${failed > 0 ? ' X' : ' V'}`);
 process.exit(failed > 0 ? 1 : 0);

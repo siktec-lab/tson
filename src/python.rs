@@ -9,11 +9,11 @@ use pyo3::{Bound, PyResult};
 use crate::error::TsonError;
 use crate::structure::*;
 
-// ─── dumps: str → bytes ───────────────────────────────────────────────────
+// dumps: str -> bytes
 
 /// Compile a JSON string to TSON binary bytes.
 ///
-/// Python: `tson.dumps('{"a":1}') → b'...'`
+/// Python: `tson.dumps('{"a":1}') -> b'...'`
 #[pyfunction]
 #[cfg(feature = "json")]
 fn dumps(json_text: &str) -> PyResult<Vec<u8>> {
@@ -22,11 +22,11 @@ fn dumps(json_text: &str) -> PyResult<Vec<u8>> {
     crate::encode::encode_document(&doc).map_err(to_py_err)
 }
 
-// ─── loads: bytes → Python object ─────────────────────────────────────────
+// loads: bytes -> Python object
 
 /// Decompile TSON binary bytes to a Python object (dict/list/scalar).
 ///
-/// Python: `tson.loads(b'...') → {'a': 1}`
+/// Python: `tson.loads(b'...') -> {'a': 1}`
 #[pyfunction]
 #[cfg(feature = "json")]
 fn loads(bytes: &[u8]) -> PyResult<PyObject> {
@@ -36,7 +36,7 @@ fn loads(bytes: &[u8]) -> PyResult<PyObject> {
     serde_json_to_py(&value, py)
 }
 
-// ─── dump: str + path → None ──────────────────────────────────────────────
+// dump: str + path -> None
 
 /// Compile a JSON string and write TSON binary to a file.
 ///
@@ -51,11 +51,11 @@ fn dump(json_text: &str, path: &str) -> PyResult<()> {
     std::fs::write(path, &bytes).map_err(to_py_err)
 }
 
-// ─── load: path → Python object ───────────────────────────────────────────
+// load: path -> Python object
 
 /// Read a TSON file and decompile to a Python object.
 ///
-/// Python: `tson.load('data.tson') → {'a': 1}`
+/// Python: `tson.load('data.tson') -> {'a': 1}`
 #[pyfunction]
 #[cfg(feature = "json")]
 fn load(path: &str) -> PyResult<PyObject> {
@@ -66,11 +66,11 @@ fn load(path: &str) -> PyResult<PyObject> {
     serde_json_to_py(&value, py)
 }
 
-// ─── emit: dict → bytes (bypasses JSON) ───────────────────────────────────
+// emit: dict -> bytes (bypasses JSON)
 
 /// Emit a Python dict/list as TSON binary directly (no JSON string).
 ///
-/// Python: `tson.emit({'temp': 22.5}) → b'...'`
+/// Python: `tson.emit({'temp': 22.5}) -> b'...'`
 #[pyfunction]
 #[cfg(feature = "json")]
 fn emit_obj(obj: &Bound<'_, PyAny>) -> PyResult<Vec<u8>> {
@@ -80,7 +80,7 @@ fn emit_obj(obj: &Bound<'_, PyAny>) -> PyResult<Vec<u8>> {
     crate::encode::encode_document(&doc).map_err(to_py_err)
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────
+// Helpers
 
 fn to_py_err(e: TsonError) -> pyo3::PyErr {
     pyo3::exceptions::PyValueError::new_err(e.to_string())
@@ -160,7 +160,7 @@ fn py_to_tson_data(obj: &Bound<'_, PyAny>) -> PyResult<TsonData> {
     ))
 }
 
-// ─── Module initialization ────────────────────────────────────────────────
+// Module initialization
 
 #[pymodule]
 fn tson(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {

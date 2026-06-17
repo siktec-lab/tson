@@ -3,7 +3,7 @@ extern crate alloc;
 mod error;
 mod tson;  // tson.rs re-exports all modules (structure, encode, decode, stream)
 
-// Binary target module tree — mirrors lib.rs so `crate::encode` etc. resolve.
+// Binary target module tree - mirrors lib.rs so `crate::encode` etc. resolve.
 mod encode;
 mod decode;
 mod stream;
@@ -60,8 +60,8 @@ fn is_tson_file_name(file_name: &str) -> bool {
 
 fn print_usage(program: &str) {
     eprintln!("Usage:");
-    eprintln!("  {program} <file.json>              Compile JSON → TSON binary");
-    eprintln!("  {program} <file.tson>              Decompile TSON → JSON text");
+    eprintln!("  {program} <file.json>              Compile JSON -> TSON binary");
+    eprintln!("  {program} <file.tson>              Decompile TSON -> JSON text");
     eprintln!("  {program} -s <file.tson>           Stream-print entries (debug)");
 }
 
@@ -91,7 +91,7 @@ fn main() {
         std::process::exit(1);
     }
 
-    // ── Streaming mode ──────────────────────────────────────────────
+    // Streaming mode
     if stream_mode {
         let mut buf = Vec::new();
         match std::fs::File::open(tson_file) {
@@ -109,7 +109,7 @@ fn main() {
 
         match tson::TsonStreamReader::new(&buf) {
             Ok(reader) => {
-                // ── Header ────────────────────────────────────────
+                // Header
                 println!("Header version: {}", reader.header().version);
                 println!(
                     "  Def offset: {}   Dict offset: {}   Data offset: {}",
@@ -118,7 +118,7 @@ fn main() {
                     reader.header().blk_data
                 );
 
-                // ── Definitions ───────────────────────────────────
+                // Definitions
                 println!("Definitions: {}", reader.definitions().len());
                 for def in reader.definitions() {
                     print!("  #{}: {:?}", def.index, def.def_type);
@@ -134,7 +134,7 @@ fn main() {
                     println!();
                 }
 
-                // ── Dict block ────────────────────────────────────
+                // Dict block
                 let dict = reader.dict();
                 println!("Dict entries: {}", dict.len());
                 for (i, s) in dict.iter().enumerate() {
@@ -142,7 +142,7 @@ fn main() {
                     println!("  [{}] {}", i, truncated);
                 }
 
-                // ── Data entries (stream) ─────────────────────────
+                // Data entries (stream)
                 println!("Entries (streaming):");
                 let mut entry_idx = 0u32;
                 for result in reader {
@@ -166,7 +166,7 @@ fn main() {
         return;
     }
 
-    // ── Compile / Decompile mode ────────────────────────────────────
+    // Compile / Decompile mode
     let file = match std::fs::File::open(tson_file) {
         Ok(f) => f,
         Err(e) => {
@@ -189,7 +189,7 @@ fn main() {
                                 std::process::exit(1);
                             }
                             println!(
-                                "Compiled {} → {} ({} bytes, {} defs, {} entries)",
+                                "Compiled {} -> {} ({} bytes, {} defs, {} entries)",
                                 tson_file,
                                 tson_path,
                                 binary.len(),

@@ -13,7 +13,7 @@ import tempfile
 try:
     import tson
 except ImportError:
-    pytest.skip("tson module not built — run `maturin develop` first", allow_module_level=True)
+    pytest.skip("tson module not built - run `maturin develop` first", allow_module_level=True)
 
 import pytest
 
@@ -68,7 +68,7 @@ class TestDumpLoad:
 
 
 class TestEmit:
-    """Direct dict/list → TSON (no JSON string)."""
+    """Direct dict/list -> TSON (no JSON string)."""
 
     def test_emit_dict(self):
         blob = tson.emit({"temp": 22.5, "unit": "C"})

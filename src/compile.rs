@@ -56,9 +56,9 @@ struct CompileBuilder {
     shape_index: HashMap<String, u16>,
     array_index: HashMap<String, u16>,
     next_idx: u16,
-    /// Strings that have appeared ≥2 times — the output dict.
+    /// Strings that have appeared ≥2 times - the output dict.
     dict: Vec<String>,
-    /// String → dict index (only contains strings in `dict`).
+    /// String -> dict index (only contains strings in `dict`).
     #[cfg(feature = "dict")]
     dict_map: HashMap<String, u32>,
     /// Strings seen exactly once so far (not yet in `dict`).
@@ -93,11 +93,11 @@ impl CompileBuilder {
         /// Single-pass string interning with **lazy promotion**.
     ///
     /// - First occurrence: emit inline `String`, record in `seen_once`.
-    /// - Second occurrence: promote from `seen_once` → `dict`, emit `StrRef`.
+    /// - Second occurrence: promote from `seen_once` -> `dict`, emit `StrRef`.
     /// - Third+ occurrences: found in `dict`, emit `StrRef`.
     ///
     /// This ensures the output dict only contains strings that actually
-    /// appeared ≥2 times — no unused entries.
+    /// appeared ≥2 times - no unused entries.
     ///
     /// When the `dict` feature is disabled, all strings are always emitted
     /// inline and the output dict is always empty.
@@ -256,7 +256,7 @@ fn json_type_tag(value: &JsonValue) -> u8 {
     }
 }
 
-// ─── Direct Data Compilation (Bypasses JSON) ─────────────────────────────
+// Direct Data Compilation (Bypasses JSON)
 
 /// Compile a `TsonChunk` slice directly into a `TsonDocument`, bypassing JSON.
 ///
@@ -264,7 +264,7 @@ fn json_type_tag(value: &JsonValue) -> u8 {
 /// string dict.  Field names are synthetic ("f0", "f1", …) since `TsonData`
 /// carries values but not field names.
 ///
-/// This is the backend behind `tson::emit()` — useful when you have
+/// This is the backend behind `tson::emit()` - useful when you have
 /// structured data from a sensor, database, or API and want TSON binary
 /// without going through `serde_json`.
 pub fn compile_from_data(chunks: &[TsonChunk]) -> Result<TsonDocument, TsonError> {
@@ -282,7 +282,7 @@ struct DataCompiler {
     next_idx: u16,
     dict: Vec<String>,
     dict_map: HashMap<String, u32>,
-    /// Maps user-provided definition indices → real definition indices.
+    /// Maps user-provided definition indices -> real definition indices.
     /// The user writes `Object(0, fields)` but the real index might be 6.
     index_map: HashMap<u16, u16>,
 }
@@ -364,7 +364,7 @@ impl DataCompiler {
     }
 
     /// Recursively rewrite definition indices in a TsonData tree using
-    /// the index_map (old user-provided index → real definition index).
+    /// the index_map (old user-provided index -> real definition index).
     fn rewrite_indices(&self, data: &TsonData) -> TsonData {
         match data {
             TsonData::Object(old_def, fields) => {

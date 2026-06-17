@@ -298,7 +298,7 @@ fn decode_primitive_value(bytes: &[u8], ty: TsonType) -> Result<(TsonData, usize
     }
 }
 
-/// O(1) definition lookup — definitions are stored in index order.
+/// O(1) definition lookup - definitions are stored in index order.
 fn resolve_def<'a>(index: u16, all_defs: &'a [TsonDefinition]) -> Result<&'a TsonDefinition, TsonError> {
     all_defs.get(index as usize).ok_or_else(|| TsonError::ParseError(format!("Unknown definition index: {}", index)))
 }

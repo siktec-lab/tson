@@ -92,7 +92,7 @@ pub enum TsonData {
     Float(f32),
     /// Inline UTF-8 string.
     String(String),
-    /// Dereference into `doc.dict[index]` — created by the decoder when
+    /// Dereference into `doc.dict[index]` - created by the decoder when
     /// the sentinel `0xFFFF_FFFF` is detected in a String payload.
     StrRef(u32),
     Array(u16, u16, Vec<TsonData>),
@@ -199,7 +199,7 @@ impl TsonDocument {
 
     /// Resolve a field name to its positional index for O(1) repeated access.
     ///
-    /// Use this when extracting the same field from many documents — resolve
+    /// Use this when extracting the same field from many documents - resolve
     /// the index once, then use `get_by_index()` in a hot loop.
     pub fn index(&self, field_name: &str) -> Option<usize> {
         let entry = self.first_entry()?;
@@ -215,7 +215,7 @@ impl TsonDocument {
 
     /// Get a field value by positional index (from `index()`).
     ///
-    /// O(1) lookup — no string comparison. Returns `None` if the index is
+    /// O(1) lookup - no string comparison. Returns `None` if the index is
     /// out of bounds or the first entry is not an Object.
     pub fn get_by_index(&self, index: usize) -> Option<&TsonData> {
         let entry = self.first_entry()?;

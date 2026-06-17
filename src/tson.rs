@@ -9,7 +9,7 @@ pub use crate::structure::{
 
 pub use crate::stream::TsonStreamReader;
 
-// ─── Emit Mode — Direct TsonData → Binary (Bypasses JSON) ──────────────────
+// Emit Mode - Direct TsonData -> Binary (Bypasses JSON)
 
 /// Emit a single `TsonData` value as a complete TSON document.
 ///
@@ -17,7 +17,7 @@ pub use crate::stream::TsonStreamReader;
 /// data tree.  Field names are synthetic (`"f0"`, `"f1"`, …) since
 /// `TsonData` carries values but not field names.
 ///
-/// This bypasses JSON entirely — useful for emitting TSON binary directly
+/// This bypasses JSON entirely - useful for emitting TSON binary directly
 /// from structured data (sensor readings, database rows, in-memory structs).
 ///
 /// # Example
@@ -54,7 +54,7 @@ pub fn emit_value(data: &TsonData) -> Result<Vec<u8>, TsonError> {
 ///
 /// This is the **server response path**: receive a TSON message, extract
 /// fields, build a response value, and emit it back using the incoming
-/// message's definitions. No schema re-discovery, no dict rebuild — just
+/// message's definitions. No schema re-discovery, no dict rebuild - just
 /// encode using the already-parsed context.
 ///
 /// # Example
@@ -109,7 +109,7 @@ fn def_index_for_value(data: &TsonData) -> u16 {
     }
 }
 
-// ─── Raw-bytes round-trip ──────────────────────────────────────────────────
+// Raw-bytes round-trip
 
 /// Encode a `TsonDocument` to its binary representation.
 pub fn to_bytes(doc: &TsonDocument) -> Result<Vec<u8>, TsonError> {
@@ -126,7 +126,7 @@ pub fn decode_definitions(bytes: &[u8]) -> Result<Vec<TsonDefinition>, TsonError
     decode::decode_definitions(bytes)
 }
 
-// ─── JSON convenience (feature-gated) ──────────────────────────────────────
+// JSON convenience (feature-gated)
 
 #[cfg(feature = "json")]
 #[allow(dead_code)]

@@ -6,7 +6,7 @@ use crate::structure::*;
 /// A streaming TSON reader that yields data entries one at a time.
 ///
 /// Memory model:
-/// - The **definition block** is fully materialized once (small — usually
+/// - The **definition block** is fully materialized once (small - usually
 ///   tens to hundreds of bytes).
 /// - The **data block** is scanned entry-by-entry; only one entry is held
 ///   at a time.
@@ -21,7 +21,7 @@ use crate::structure::*;
 /// }
 /// ```
 pub struct TsonStreamReader<'a> {
-    /// Parsed definitions — kept alive so each entry can reference its schema.
+    /// Parsed definitions - kept alive so each entry can reference its schema.
     pub(crate) definitions: Vec<TsonDefinition>,
     /// Parsed string interning table.
     #[allow(dead_code)]
@@ -196,7 +196,7 @@ impl<'a> Iterator for TsonStreamReader<'a> {
     }
 }
 
-// ─── Standalone streaming convenience ───────────────────────────────────────
+// Standalone streaming convenience
 
 /// Parse a TSON byte slice, returning the header and definitions immediately
 /// for inspection, and a `TsonStreamReader` for iterating data entries.
@@ -208,7 +208,7 @@ pub fn open_stream(bytes: &[u8]) -> Result<TsonStreamReader<'_>, TsonError> {
     TsonStreamReader::new(bytes)
 }
 
-// ─── Multi-Document Reader ────────────────────────────────────────────────
+// Multi-Document Reader
 
 /// Reads length-prefixed TSON documents from a byte source.
 ///

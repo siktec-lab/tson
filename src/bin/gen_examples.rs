@@ -2,7 +2,7 @@ fn main() {
     use std::fs;
     use std::io::Write;
 
-    // ── Telemetry file: 500 sensor readings with repeating structure ──
+    // Telemetry file: 500 sensor readings with repeating structure
     let mut f = fs::File::create("examples/telemetry.json").unwrap();
     writeln!(f, "{{").unwrap();
     writeln!(f, r#"  "device_id": "sensor-array-001","#).unwrap();
@@ -26,7 +26,7 @@ fn main() {
     writeln!(f, "  ]").unwrap();
     writeln!(f, "}}").unwrap();
 
-    // ── Config file: deeply nested with 200 routing rules ──
+    // Config file: deeply nested with 200 routing rules
     let mut f = fs::File::create("examples/config.json").unwrap();
     writeln!(f, "{{").unwrap();
     writeln!(f, r#"  "app": {{"name":"EdgeGateway","version":"3.2.1","features":["cache","compression","auto-retry","rate-limit"],"limits":{{"max_connections":1000,"timeout_ms":5000,"retry_count":3}},"endpoints":"#).unwrap();

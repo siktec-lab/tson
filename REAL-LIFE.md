@@ -1,27 +1,27 @@
-# TSON — Real-Life Usage Guide
+# TSON - Real-Life Usage Guide
 
 A walkthrough from remote JSON ingestion to local persisted struct data, showing how TSON fits into a realistic data pipeline (serialize, transfer, store, query, save to disk).
 
 ---
 
-## Primary Use Case — Client/Server with JSON → TSON Bridge
+## Primary Use Case - Client/Server with JSON -> TSON Bridge
 
-The core TSON scenario: a legacy client sends JSON over the network. A TSON proxy compresses it to 40-70% smaller binary. The server receives TSON, extracts only the fields it needs, and acts — never touching JSON.
+The core TSON scenario: a legacy client sends JSON over the network. A TSON proxy compresses it to 40-70% smaller binary. The server receives TSON, extracts only the fields it needs, and acts - never touching JSON.
 
 ```
 ┌──────────┐   JSON    ┌──────────────┐   TSON    ┌─────────────────┐
-│  Client   │ ───────→ │  TSON Proxy  │ ────────→ │  Server          │
+│  Client   │ ───────-> │  TSON Proxy  │ ────────-> │  Server          │
 │ (legacy,  │  890 B   │  (compile)    │  374 B   │  (stream+extract)│
 │  no code  │          │               │           │                  │
 │  changes) │          └──────────────┘          │  ┌─────────────┐ │
 └──────────┘                                     │  │ SensorAlert  │ │
                                                   │  │ temp > 30.0? │ │
-                                                  │  │ → fire alarm │ │
+                                                  │  │ -> fire alarm │ │
                                                   │  └─────────────┘ │
                                                   └─────────────────┘
 ```
 
-### Client Side — JSON Producer (No Changes)
+### Client Side - JSON Producer (No Changes)
 
 The client is a weather station running firmware from 2019. It POSTs JSON every second:
 
@@ -36,9 +36,9 @@ Content-Type: application/json
  "battery":3.72,"status":"nominal"}
 ```
 
-This is 232 bytes of JSON — perfectly readable, debuggable with `curl`, and the client doesn't change at all.
+This is 232 bytes of JSON - perfectly readable, debuggable with `curl`, and the client doesn't change at all.
 
-### TSON Proxy — Compile at the Edge
+### TSON Proxy - Compile at the Edge
 
 A lightweight proxy sits between the client and the server. It compiles the JSON to TSON before forwarding.
 
@@ -50,10 +50,10 @@ fn proxy_handler(json_body: &str) -> Vec<u8> {
     let doc = tson::compile_json(json_body).unwrap();
     let tson_bin = tson::to_bytes(&doc).unwrap();
 
-    println!("JSON: {} B → TSON: {} B ({:.1}% of original)",
+    println!("JSON: {} B -> TSON: {} B ({:.1}% of original)",
         json_body.len(), tson_bin.len(),
         tson_bin.len() as f64 / json_body.len() as f64 * 100.0);
-    // → JSON: 232 B → TSON: 141 B (60.8% of original)
+    // -> JSON: 232 B -> TSON: 141 B (60.8% of original)
 
     tson_bin
 }
@@ -61,11 +61,11 @@ fn proxy_handler(json_body: &str) -> Vec<u8> {
 
 **What the proxy gains:**
 - 40-70% bandwidth reduction on the wire
-- No client-side changes — the proxy is transparent
-- No pre-shared schema — TSON discovers structure from each message
-- One compile per message, ~12 µs — negligible overhead
+- No client-side changes - the proxy is transparent
+- No pre-shared schema - TSON discovers structure from each message
+- One compile per message, ~12 µs - negligible overhead
 
-### Server Side — Receive TSON, Extract Fields, Act
+### Server Side - Receive TSON, Extract Fields, Act
 
 The server receives the TSON binary. It needs exactly two things from each message: the temperature value and the status field. Nothing else matters.
 
@@ -73,7 +73,7 @@ The server receives the TSON binary. It needs exactly two things from each messa
 use tson::{TsonStreamReader, TsonData};
 
 fn handle_sensor_message(tson_bin: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
-    // Step 1: open the stream — parses header + defs + dict (small)
+    // Step 1: open the stream - parses header + defs + dict (small)
     let mut reader = TsonStreamReader::new(tson_bin)?;
     let defs = reader.definitions();
     let dict = reader.dict();
@@ -84,7 +84,7 @@ fn handle_sensor_message(tson_bin: &[u8]) -> Result<(), Box<dyn std::error::Erro
     // Step 2: read the first (and only) data entry
     let chunk = reader.next().unwrap()?;
 
-    // Step 3: extract just the fields we need — no JSON parse, no allocation
+    // Step 3: extract just the fields we need - no JSON parse, no allocation
     let status = chunk.data.field("status", defs)
         .and_then(|v| match v {
             TsonData::String(s) => Some(s.as_str()),
@@ -92,10 +92,10 @@ fn handle_sensor_message(tson_bin: &[u8]) -> Result<(), Box<dyn std::error::Erro
         })
         .unwrap_or("unknown");
 
-    // The 'sensors' field is an array of objects — we need the first one (temp)
+    // The 'sensors' field is an array of objects - we need the first one (temp)
     let sensors = chunk.data.field("sensors", defs);
     let temp: Option<f32> = sensors.and_then(|arr| {
-        // arr is a TsonData::Array — iterate its elements
+        // arr is a TsonData::Array - iterate its elements
         arr.values().iter().find_map(|element| {
             // Each element is a TsonData::Object with type/value/unit fields
             let ty = element.field("type", defs)?;
@@ -112,7 +112,7 @@ fn handle_sensor_message(tson_bin: &[u8]) -> Result<(), Box<dyn std::error::Erro
 
     println!("Status: {status}, Temperature: {:?}", temp);
 
-    // Step 4: business logic — no JSON in sight
+    // Step 4: business logic - no JSON in sight
     if let Some(t) = temp {
         if t > 30.0 {
             eprintln!("ALARM: temperature {t}°C exceeds threshold!");
@@ -127,12 +127,12 @@ fn handle_sensor_message(tson_bin: &[u8]) -> Result<(), Box<dyn std::error::Erro
 ```
 
 **What the server gains:**
-- **No JSON parse** — `TsonStreamReader` is ~2× faster than `serde_json::from_str` for this payload
-- **No field-name allocation** — field names are in the definitions block, referenced by index
-- **No full decompilation** — `field()` walks the definition table and returns a reference. Zero allocations for value extraction.
-- **Type-safe** — every value is a `TsonData` variant with known types (no `serde_json::Value::as_f64().unwrap_or()` guard against type surprises)
-- **O(1) memory** — the streaming reader holds one entry at a time
-- **72% of the payload is ignored** — the server reads 2 fields out of 10 and discards the rest. The streaming reader skips past unneeded fields efficiently.
+- **No JSON parse** - `TsonStreamReader` is ~2x faster than `serde_json::from_str` for this payload
+- **No field-name allocation** - field names are in the definitions block, referenced by index
+- **No full decompilation** - `field()` walks the definition table and returns a reference. Zero allocations for value extraction.
+- **Type-safe** - every value is a `TsonData` variant with known types (no `serde_json::Value::as_f64().unwrap_or()` guard against type surprises)
+- **O(1) memory** - the streaming reader holds one entry at a time
+- **72% of the payload is ignored** - the server reads 2 fields out of 10 and discards the rest. The streaming reader skips past unneeded fields efficiently.
 
 ### Full Main Loop
 
@@ -146,21 +146,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
          "battery":3.72,"status":"nominal"}
     "#);
 
-    // Server processes the binary — no JSON anywhere
+    // Server processes the binary - no JSON anywhere
     handle_sensor_message(&tson_bin)?;
 
     Ok(())
 }
 ```
 
-### Comparison — JSON vs TSON Server
+### Comparison - JSON vs TSON Server
 
 | Aspect | JSON Server | TSON Server |
 |--------|-------------|-------------|
-| Parse every message | `serde_json::from_str` — 180 µs | `TsonStreamReader::new` — 80 µs |
+| Parse every message | `serde_json::from_str` - 180 µs | `TsonStreamReader::new` - 80 µs |
 | Memory for field names | Allocated per message | In definition block, shared |
-| Extract "status" field | `obj["status"].as_str()` — O(1) | `chunk.field("status", defs)` — O(fields) |
-| Extract nested sensor type | Full tree deserialization | `field("sensors").values()` — partial read |
+| Extract "status" field | `obj["status"].as_str()` - O(1) | `chunk.field("status", defs)` - O(fields) |
+| Extract nested sensor type | Full tree deserialization | `field("sensors").values()` - partial read |
 | Type safety | Dynamic (`Value::as_f64`, etc.) | Static (`TsonData::Float`, `TsonData::String`) |
 | Unused fields | Still parsed and allocated | Skipped entirely |
 | Binary size on wire | 232 B | 141 B (60.8%) |
@@ -194,7 +194,7 @@ For one sensor reading, the output might show:
 ```
 Definitions: 11       (6 primitives + 5 compound shapes)
 Dict entries: 63       (repeated strings like "temperature", "humidity", "nominal")
-Data entries: 1        (one root entry — could be many if from a batch)
+Data entries: 1        (one root entry - could be many if from a batch)
 ```
 
 TSON automatically discovered the structure without a schema file, and
@@ -259,7 +259,7 @@ impl RollingArchive {
 }
 ```
 
-Each archive entry is a length-prefixed TSON blob — simple, seekable, and
+Each archive entry is a length-prefixed TSON blob - simple, seekable, and
 self-describing.
 
 ---
@@ -276,7 +276,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         archive.append(&tson_bin);
 
         println!(
-            "Stored: JSON {} B → TSON {} B ({:.1}% of original)",
+            "Stored: JSON {} B -> TSON {} B ({:.1}% of original)",
             json_resp.len(),
             tson_bin.len(),
             tson_bin.len() as f64 / json_resp.len() as f64 * 100.0
@@ -428,7 +428,7 @@ fn find_alarm_events(archive_path: &str) -> Vec<String> {
 ## 6. Example: The Full Round-Trip in One Script
 
 ```rust
-//! sensor-pipeline.rs — Daily temperature report
+//! sensor-pipeline.rs - Daily temperature report
 //!
 //! Reads the rolling TSON archive, extracts all temperature readings,
 //! computes hourly averages, and writes a summary CSV.
@@ -473,7 +473,7 @@ fn main() {
 4. **Schema dedup with the dict** combined can shrink repetitive data by 70%.
    This makes TSON especially suitable for telemetry, API responses, and log files.
 
-5. **No schema files needed**. Unlike Protobuf, TSON discovers the schema from data — you can start using
+5. **No schema files needed**. Unlike Protobuf, TSON discovers the schema from data - you can start using
    it with existing JSON APIs without pre-declaring types.
 
 6. **Zero-copy strings**. When a string is repeated hundreds of times (like "temperature" in sensor data), it is stored once in the dict block.  All data entries

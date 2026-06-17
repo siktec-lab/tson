@@ -1,6 +1,6 @@
-//! Round-trip tests for TSON encode → decode cycle.
+//! Round-trip tests for TSON encode -> decode cycle.
 //!
-//! Each test compiles JSON → `TsonDocument` → binary → `TsonDocument` →
+//! Each test compiles JSON -> `TsonDocument` -> binary -> `TsonDocument` ->
 //! JSON, then verifies the output matches the expected JSON structure.
 
 #[cfg(feature = "json")]
@@ -9,7 +9,7 @@ mod roundtrip_tests {
     use tson::{TsonData, TsonHeader};
 
     fn verify_roundtrip(json_input: &str) {
-        // Compile JSON → TSON document
+        // Compile JSON -> TSON document
         let doc = tson::compile_json(json_input).unwrap();
 
         // Encode to binary
@@ -36,7 +36,7 @@ mod roundtrip_tests {
         let _output_str = serde_json::to_string(&output).expect("should serialize to string");
     }
 
-    // ── Primitives ────────────────────────────────────────────────────
+    // Primitives
 
     #[test]
     fn null_value() {
@@ -88,7 +88,7 @@ mod roundtrip_tests {
         verify_roundtrip(r#""""#);
     }
 
-    // ── Arrays ────────────────────────────────────────────────────────
+    // Arrays
 
     #[test]
     fn empty_array() {
@@ -110,7 +110,7 @@ mod roundtrip_tests {
         verify_roundtrip("[[1, 2], [3, 4]]");
     }
 
-    // ── Objects ───────────────────────────────────────────────────────
+    // Objects
 
     #[test]
     fn empty_object() {
@@ -127,7 +127,7 @@ mod roundtrip_tests {
         verify_roundtrip(r#"{"user":{"name":"Bob","score":100}}"#);
     }
 
-    // ── Complex structures ────────────────────────────────────────────
+    // Complex structures
 
     #[test]
     fn array_of_objects() {
@@ -164,7 +164,7 @@ mod roundtrip_tests {
         verify_roundtrip("[[1], [1, 2], [1, 2, 3]]");
     }
 
-    // ── Edge cases ────────────────────────────────────────────────────
+    // Edge cases
 
     #[test]
     fn large_integer() {
@@ -178,11 +178,11 @@ mod roundtrip_tests {
 
     #[test]
     fn scientific_float() {
-        // 1.0 × 2² = 4.0 — exactly representable in f32
+        // 1.0 x 2² = 4.0 - exactly representable in f32
         verify_roundtrip("4.0");
     }
 
-    // ── users-t1.json example ─────────────────────────────────────────
+    // users-t1.json example
 
     #[test]
     fn users_example() {
@@ -227,7 +227,7 @@ mod roundtrip_tests {
         verify_roundtrip(json);
     }
 
-    // ── Binary format integrity ───────────────────────────────────────
+    // Binary format integrity
 
     #[test]
     fn header_size_is_13_bytes() {
@@ -248,12 +248,12 @@ mod roundtrip_tests {
         assert!(doc.definitions.len() >= 7, "need primitives + object");
     }
 
-    // ── Dict / string interning edge cases ──────────────────────────
+    // Dict / string interning edge cases
 
     #[test]
     #[cfg(feature = "dict")]
     fn dict_empty_when_no_duplicate_strings() {
-        // 24 unique strings, 0 duplicates → dict should be empty
+        // 24 unique strings, 0 duplicates -> dict should be empty
         let json = r#"{
             "users": [
                 {"name": "Alice",   "role": "admin"},
@@ -270,7 +270,7 @@ mod roundtrip_tests {
     #[test]
     #[cfg(feature = "dict")]
     fn dict_only_contains_repeated_strings() {
-        // "Charlie" appears twice — only Charlie should be in the dict
+        // "Charlie" appears twice - only Charlie should be in the dict
         let json = r#"{
             "users": [
                 {"name": "Alice",   "role": "admin"},
@@ -289,7 +289,7 @@ mod roundtrip_tests {
     #[test]
     #[cfg(feature = "dict")]
     fn strref_roundtrip_preserves_all_values() {
-        // Verifies that even with dict, all values survive encode→decode
+        // Verifies that even with dict, all values survive encode->decode
         let json = r#"{"names": ["Alice", "Bob", "Alice", "Charlie", "Bob"]}"#;
         let doc = tson::compile_json(json).unwrap();
         let bytes = tson::to_bytes(&doc).unwrap();
@@ -314,7 +314,7 @@ mod roundtrip_tests {
         assert_eq!(val.as_array().unwrap().len(), 3);
     }
 
-    // ── Direct emit (TsonData → binary, bypasses JSON) ─────────────
+    // Direct emit (TsonData -> binary, bypasses JSON)
 
     #[test]
     fn emit_roundtrip_primitive_values() {
@@ -327,7 +327,7 @@ mod roundtrip_tests {
         let bytes = tson::emit(&data).unwrap();
         assert!(!bytes.is_empty(), "Emitted bytes should not be empty");
 
-        // Round-trip through decode → decompile
+        // Round-trip through decode -> decompile
         let restored = tson::from_bytes(&bytes).unwrap();
         let value = tson::decompile_to_value(&restored).unwrap();
         assert!(value.is_object(), "Emitted data should round-trip to an object");
@@ -344,7 +344,7 @@ mod roundtrip_tests {
         assert_eq!(payload, 42i32.to_le_bytes().to_vec());
     }
 
-    // ── Field access — helpers for extracting values ────────────────
+    // Field access - helpers for extracting values
 
     #[test]
     fn document_get_returns_field_by_name() {
@@ -361,7 +361,7 @@ mod roundtrip_tests {
         // Missing field
         assert!(doc.get("nonexistent").is_none());
 
-        // Nested field lookup — address is itself an Object
+        // Nested field lookup - address is itself an Object
         let address = doc.get("address").unwrap();
         let city = address.field("city", &doc.definitions).unwrap();
         assert!(matches!(city, TsonData::String(s) if s == "Anytown"));
@@ -379,7 +379,7 @@ mod roundtrip_tests {
         assert_eq!(arr.values().len(), 3);
     }
 
-    // ── Field access — more edge cases ───────────────────────────────
+    // Field access - more edge cases
 
     #[test]
     fn document_get_handles_all_primitive_types() {
@@ -405,7 +405,7 @@ mod roundtrip_tests {
     fn document_get_returns_none_on_empty_document() {
         let json = r#"null"#;
         let doc = tson::compile_json(json).unwrap();
-        // Null is a valid entry — get() returns None because it's not an Object
+        // Null is a valid entry - get() returns None because it's not an Object
         assert!(doc.get("anything").is_none());
     }
 
@@ -439,7 +439,7 @@ mod roundtrip_tests {
         assert!(arr.is_empty());
     }
 
-    // ── Emit + nested field access ─────────────────────────────────
+    // Emit + nested field access
 
     #[test]
     fn emit_then_field_access_preserves_value_tree() {
@@ -466,7 +466,7 @@ mod roundtrip_tests {
         assert!(matches!(inner_num, TsonData::Int(99)));
     }
 
-    // ── index() + get_by_index() — O(1) repeated field access ────────
+    // index() + get_by_index() - O(1) repeated field access
 
     #[test]
     fn index_and_get_by_index() {
@@ -494,7 +494,7 @@ mod roundtrip_tests {
         assert!(doc.get_by_index(0).is_none());
     }
 
-    // ── emit_with_context() — reuse existing defs+dict for responses ──
+    // emit_with_context() - reuse existing defs+dict for responses
 
     #[test]
     fn emit_with_context_roundtrip() {
@@ -544,7 +544,7 @@ mod roundtrip_tests {
             "emit_with_context should preserve dict content");
     }
 
-    // ── TsonDocReader — multi-document stream ────────────────────────
+    // TsonDocReader - multi-document stream
 
     #[test]
     fn tson_doc_reader_multi_document() {
@@ -558,7 +558,7 @@ mod roundtrip_tests {
         let bin1 = tson::to_bytes(&doc1).unwrap();
         let bin2 = tson::to_bytes(&doc2).unwrap();
 
-        // Build a length-prefixed stream: [4B LE len][TSON binary] × 2
+        // Build a length-prefixed stream: [4B LE len][TSON binary] x 2
         let mut stream = Vec::new();
         stream.extend_from_slice(&(bin1.len() as u32).to_le_bytes());
         stream.extend_from_slice(&bin1);
@@ -581,7 +581,7 @@ mod roundtrip_tests {
         assert!(reader.next().is_none(), "empty stream yields None");
     }
 
-    // ── Streaming reader ─────────────────────────────────────────────
+    // Streaming reader
 
     #[test]
     fn stream_reader_yields_all_entries() {
