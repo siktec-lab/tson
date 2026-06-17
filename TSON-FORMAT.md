@@ -2,7 +2,7 @@
 
 ## Overview
 
-TSON (Terse JSON) is a compact binary serialisation format for structured data. It separates **structure** (field names, types) from **values**, storing the structure once in a definition block and referencing it from the data block. Repeated strings are stored once in a dict block. This yields dramatic compaction for repetitive JSON payloads.
+TSON (Terse JSON) is a compact binary serialization format for structured data. It separates **structure** (field names, types) from **values**, storing the structure once in a definition block and referencing it from the data block. Repeated strings are stored once in a dict block. This yields dramatic compaction for repetitive JSON payloads.
 
 The format is designed for microcontrollers and constrained environments: the definition and dict blocks are small enough to keep in RAM, and the data block can be streamed entry-by-entry with `O(1)` additional memory per entry.
 

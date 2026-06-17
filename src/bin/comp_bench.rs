@@ -140,13 +140,13 @@ fn main() {
 
     println!();
     println!("  ── Observations ──");
-    println!("  • JSON parse alone dominates ({:.0}% of per-op budget)", json_parse_ns / total * 100.0);
-    println!("  • TSON overhead = compile ({:.0}%) + encode/decode ({:.0}%+{:.0}%)",
+    println!("  * JSON parse alone dominates ({:.0}% of per-op budget)", json_parse_ns / total * 100.0);
+    println!("  * TSON overhead = compile ({:.0}%) + encode/decode ({:.0}%+{:.0}%)",
         compile_ns / total * 100.0, encode_ns / total * 100.0, decode_ns / total * 100.0);
-    println!("  • Streaming reader loads defs+dict once, then O(1) per entry");
-    println!("  • TSON binary is {:.1}% the size of the original JSON", tson_size as f64 / json_size as f64 * 100.0);
+    println!("  * Streaming reader loads defs+dict once, then O(1) per entry");
+    println!("  * TSON binary is {:.1}% the size of the original JSON", tson_size as f64 / json_size as f64 * 100.0);
     if dict_count > 0 {
-        println!("  • Dict has {} entries — string interning saved repeated strings", dict_count);
+        println!("  * Dict has {} entries — string interning saved repeated strings", dict_count);
     }
 
     // ── Field access benchmarks ──────────────────────────────────────
@@ -161,7 +161,7 @@ fn main() {
         }
     }
     let vals_ns = start.elapsed().as_nanos() as f64 / ITERS as f64;
-    println!("  • data.values(): {:.1} ns", vals_ns);
+    println!("  * data.values(): {:.1} ns", vals_ns);
 
     // first_entry().data.len()
     let start = Instant::now();
@@ -169,7 +169,7 @@ fn main() {
         let _ = doc.first_entry().map(|e| e.data.len());
     }
     let len_ns = start.elapsed().as_nanos() as f64 / ITERS as f64;
-    println!("  • first_entry().data.len(): {:.1} ns", len_ns);
+    println!("  * first_entry().data.len(): {:.1} ns", len_ns);
 
     // doc.get("name") — field lookup by name (Object roots only)
     if let Some(_name_val) = doc.get("name") {
@@ -178,7 +178,7 @@ fn main() {
             let _ = doc.get("name");
         }
         let get_ns = start.elapsed().as_nanos() as f64 / ITERS as f64;
-        println!("  • doc.get(\"name\"): {:.1} ns", get_ns);
+        println!("  * doc.get(\"name\"): {:.1} ns", get_ns);
 
         // data.field() — nested field lookup
         if let Some(addr) = doc.get("address") {
@@ -187,7 +187,7 @@ fn main() {
                 let _ = addr.field("city", &doc.definitions);
             }
             let field_ns = start.elapsed().as_nanos() as f64 / ITERS as f64;
-            println!("  • data.field(\"city\", defs): {:.1} ns", field_ns);
+            println!("  * data.field(\"city\", defs): {:.1} ns", field_ns);
         }
     }
 }

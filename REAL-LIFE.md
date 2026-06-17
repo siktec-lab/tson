@@ -1,6 +1,6 @@
 # TSON — Real-Life Usage Guide
 
-A walkthrough from remote JSON ingestion to local persisted struct data, showing how TSON fits into a realistic data pipeline (serialise, transfer, store, query, save to disk).
+A walkthrough from remote JSON ingestion to local persisted struct data, showing how TSON fits into a realistic data pipeline (serialize, transfer, store, query, save to disk).
 
 ---
 

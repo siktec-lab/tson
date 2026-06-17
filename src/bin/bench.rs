@@ -98,11 +98,11 @@ fn main() {
     println!("\n  Compression: {:.1}% of original size ({:.1}% savings).", overall_ratio, 100.0 - overall_ratio);
 
     println!("\n  ── Observations ──");
-    println!("  • Field names stored once in the definition block — never repeated.");
-    println!("  • Identical object shapes share a single definition (deduplication).");
-    println!("  • Dict block stores unique strings once — StrRef replaces inline on repeat.");
-    println!("  • Primitives (int, float, bool, null, string) stored as raw bytes.");
-    println!("  • The definition + dict blocks are small — ideal for microcontroller RAM.");
+    println!("  * Field names stored once in the definition block — never repeated.");
+    println!("  * Identical object shapes share a single definition (deduplication).");
+    println!("  * Dict block stores unique strings once — StrRef replaces inline on repeat.");
+    println!("  * Primitives (int, float, bool, null, string) stored as raw bytes.");
+    println!("  * The definition + dict blocks are small — ideal for microcontroller RAM.");
 
     if perf_mode {
         println!("\n  ── Performance (p50 / p99 compile latency) ──");

@@ -160,7 +160,7 @@ fn py_to_tson_data(obj: &Bound<'_, PyAny>) -> PyResult<TsonData> {
     ))
 }
 
-// ─── Module initialisation ────────────────────────────────────────────────
+// ─── Module initialization ────────────────────────────────────────────────
 
 #[pymodule]
 fn tson(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {

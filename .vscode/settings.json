@@ -1,5 +1,20 @@
 {
     "cSpell.words": [
-        "Tson"
+        "Aways",
+        "CBOR",
+        "cdylib",
+        "dedup",
+        "eprintln",
+        "fname",
+        "ftype",
+        "maturin",
+        "mqtt",
+        "napi",
+        "pyfunction",
+        "pymodule",
+        "serde",
+        "strs",
+        "Tson",
+        "usize"
     ]
 }

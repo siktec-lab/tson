@@ -26,10 +26,10 @@ function test(name, fn) {
     try {
         fn();
         passed++;
-        console.log(`  ✓ ${name}`);
+        console.log(`  [PASS] ${name}`);
     } catch (e) {
         failed++;
-        console.log(`  ✗ ${name}: ${e.message}`);
+        console.log(`  [FAIL] ${name}: ${e.message}`);
     }
 }
 
@@ -107,5 +107,5 @@ test('dumps invalid JSON throws', () => {
 
 // ── Summary ───────────────────────────────────────────────────────────
 
-console.log(`\n  ${passed} passed, ${failed} failed${failed > 0 ? ' ❌' : ' ✅'}`);
+console.log(`\n  ${passed} passed, ${failed} failed${failed > 0 ? ' X' : ' V'}`);
 process.exit(failed > 0 ? 1 : 0);

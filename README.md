@@ -251,7 +251,7 @@ cargo run --release --bin comp-bench -- examples/telemetry.json
 
 ## Why TSON? Comparison with Other Formats
 
-TSON occupies a unique position in the binary JSON landscape — it is neither a general-purpose serializer nor a schema-first code generator. It compiles JSON into a **self-describing, compressed binary** that is optimised for *decoding on constrained devices*.
+TSON occupies a unique position in the binary JSON landscape — it is neither a general-purpose serializer nor a schema-first code generator. It compiles JSON into a **self-describing, compressed binary** that is optimized for *decoding on constrained devices*.
 
 ### Size Comparison
 
