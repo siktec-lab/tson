@@ -148,4 +148,46 @@ fn main() {
     if dict_count > 0 {
         println!("  • Dict has {} entries — string interning saved repeated strings", dict_count);
     }
+
+    // ── Field access benchmarks ──────────────────────────────────────
+    println!();
+    println!("  ── Field Access Performance ──");
+
+    // data.values() — zero-lookup slice access
+    let start = Instant::now();
+    for _ in 0..ITERS {
+        for entry in doc.entries() {
+            let _ = entry.data.values();
+        }
+    }
+    let vals_ns = start.elapsed().as_nanos() as f64 / ITERS as f64;
+    println!("  • data.values(): {:.1} ns", vals_ns);
+
+    // first_entry().data.len()
+    let start = Instant::now();
+    for _ in 0..ITERS {
+        let _ = doc.first_entry().map(|e| e.data.len());
+    }
+    let len_ns = start.elapsed().as_nanos() as f64 / ITERS as f64;
+    println!("  • first_entry().data.len(): {:.1} ns", len_ns);
+
+    // doc.get("name") — field lookup by name (Object roots only)
+    if let Some(name_val) = doc.get("name") {
+        let start = Instant::now();
+        for _ in 0..ITERS {
+            let _ = doc.get("name");
+        }
+        let get_ns = start.elapsed().as_nanos() as f64 / ITERS as f64;
+        println!("  • doc.get(\"name\"): {:.1} ns", get_ns);
+
+        // data.field() — nested field lookup
+        if let Some(addr) = doc.get("address") {
+            let start = Instant::now();
+            for _ in 0..ITERS {
+                let _ = addr.field("city", &doc.definitions);
+            }
+            let field_ns = start.elapsed().as_nanos() as f64 / ITERS as f64;
+            println!("  • data.field(\"city\", defs): {:.1} ns", field_ns);
+        }
+    }
 }

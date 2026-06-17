@@ -100,6 +100,47 @@ pub enum TsonData {
 }
 
 impl TsonData {
+    /// Get a field value by name from an Object value.
+    ///
+    /// Uses the definitions table to map field names to indices.
+    /// Returns `None` if this is not an Object, the definition is not found,
+    /// or the field does not exist.
+    pub fn field<'a>(&'a self, name: &str, defs: &'a [TsonDefinition]) -> Option<&'a TsonData> {
+        match self {
+            TsonData::Object(def_idx, values) => {
+                let def = defs.iter().find(|d| d.index == *def_idx)?;
+                let field_defs = def.fields.as_ref()?;
+                for (i, (fname, _)) in field_defs.iter().enumerate() {
+                    if fname == name {
+                        return values.get(i);
+                    }
+                }
+                None
+            }
+            _ => None,
+        }
+    }
+
+    /// Return a slice of all contained values (array elements or object
+    /// field values). Returns an empty slice for primitives.
+    pub fn values(&self) -> &[TsonData] {
+        match self {
+            TsonData::Array(_, _, items) => items.as_slice(),
+            TsonData::Object(_, items) => items.as_slice(),
+            _ => &[],
+        }
+    }
+
+    /// Number of contained values (array elements or object fields).
+    pub fn len(&self) -> usize {
+        self.values().len()
+    }
+
+    /// True if this compound value contains no elements/fields.
+    pub fn is_empty(&self) -> bool {
+        self.values().is_empty()
+    }
+
     pub fn type_tag(&self) -> TsonType {
         match self {
             TsonData::Null => TsonType::Null,
@@ -135,4 +176,22 @@ pub struct TsonDocument {
     pub definitions: Vec<TsonDefinition>,
     pub dict: Vec<String>,
     pub data: Vec<TsonChunk>,
+}
+
+impl TsonDocument {
+    /// Access the first data entry, if any.
+    pub fn first_entry(&self) -> Option<&TsonChunk> {
+        self.data.first()
+    }
+
+    /// Get a field value by name from the first data entry.
+    /// Shorthand for `doc.first_entry()?.data.field(name, &doc.definitions)`.
+    pub fn get(&self, field_name: &str) -> Option<&TsonData> {
+        self.first_entry()?.data.field(field_name, &self.definitions)
+    }
+
+    /// Iterate over all data entries (chunks).
+    pub fn entries(&self) -> impl Iterator<Item = &TsonChunk> {
+        self.data.iter()
+    }
 }

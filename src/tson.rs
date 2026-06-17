@@ -9,6 +9,46 @@ pub use crate::structure::{
 
 pub use crate::stream::TsonStreamReader;
 
+// ─── Emit Mode — Direct TsonData → Binary (Bypasses JSON) ──────────────────
+
+/// Emit a single `TsonData` value as a complete TSON document.
+///
+/// Discovers definitions and builds the string dict automatically from the
+/// data tree.  Field names are synthetic (`"f0"`, `"f1"`, …) since
+/// `TsonData` carries values but not field names.
+///
+/// This bypasses JSON entirely — useful for emitting TSON binary directly
+/// from structured data (sensor readings, database rows, in-memory structs).
+///
+/// # Example
+///
+/// ```rust
+/// use tson::{TsonData, emit};
+/// let reading = TsonData::Object(0, vec![
+///     TsonData::Float(22.5),
+///     TsonData::Int(61),
+///     TsonData::String("nominal".to_string()),
+/// ]);
+/// let bytes = emit(&reading).unwrap();
+/// assert!(bytes.len() > 13, "should produce a complete TSON document (header + defs + data)");
+/// ```
+#[allow(dead_code)]
+pub fn emit(data: &TsonData) -> Result<Vec<u8>, TsonError> {
+    let chunk = TsonChunk { definition_index: 0, data: data.clone() };
+    let doc = crate::compile::compile_from_data(&[chunk])?;
+    encode::encode_document(&doc)
+}
+
+/// Emit just the value payload (no header, definitions, or dict).
+///
+/// Use this when you already have a `TsonDocument` with parsed definitions
+/// and dict, and want to encode one additional entry's payload bytes to
+/// append to an existing TSON stream.
+#[allow(dead_code)]
+pub fn emit_value(data: &TsonData) -> Result<Vec<u8>, TsonError> {
+    encode::encode_value(data)
+}
+
 // ─── Raw-bytes round-trip ──────────────────────────────────────────────────
 
 /// Encode a `TsonDocument` to its binary representation.

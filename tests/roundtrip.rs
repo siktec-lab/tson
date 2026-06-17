@@ -6,7 +6,7 @@
 #[cfg(feature = "json")]
 mod roundtrip_tests {
 
-    use tson::TsonHeader;
+    use tson::{TsonData, TsonHeader};
 
     fn verify_roundtrip(json_input: &str) {
         // Compile JSON → TSON document
@@ -312,6 +312,158 @@ mod roundtrip_tests {
         let back = tson::from_bytes(&bytes).unwrap();
         let val = tson::decompile_to_value(&back).unwrap();
         assert_eq!(val.as_array().unwrap().len(), 3);
+    }
+
+    // ── Direct emit (TsonData → binary, bypasses JSON) ─────────────
+
+    #[test]
+    fn emit_roundtrip_primitive_values() {
+        // Build a TsonData tree directly and emit to binary
+        let data = TsonData::Object(0, vec![
+            TsonData::Float(22.5),
+            TsonData::Int(61),
+            TsonData::String("nominal".to_string()),
+        ]);
+        let bytes = tson::emit(&data).unwrap();
+        assert!(!bytes.is_empty(), "Emitted bytes should not be empty");
+
+        // Round-trip through decode → decompile
+        let restored = tson::from_bytes(&bytes).unwrap();
+        let value = tson::decompile_to_value(&restored).unwrap();
+        assert!(value.is_object(), "Emitted data should round-trip to an object");
+        let obj = value.as_object().unwrap();
+        assert_eq!(obj["f0"].as_f64().unwrap(), 22.5);
+        assert_eq!(obj["f1"].as_i64().unwrap(), 61);
+        assert_eq!(obj["f2"].as_str().unwrap(), "nominal");
+    }
+
+    #[test]
+    fn emit_value_produces_payload_only() {
+        let data = TsonData::Int(42);
+        let payload = tson::emit_value(&data).unwrap();
+        assert_eq!(payload, 42i32.to_le_bytes().to_vec());
+    }
+
+    // ── Field access — helpers for extracting values ────────────────
+
+    #[test]
+    fn document_get_returns_field_by_name() {
+        let json = r#"{"name":"Alice","age":30,"address":{"city":"Anytown"}}"#;
+        let doc = tson::compile_json(json).unwrap();
+
+        // Top-level field lookup
+        let name = doc.get("name").unwrap();
+        assert!(matches!(name, TsonData::String(s) if s == "Alice"));
+
+        let age = doc.get("age").unwrap();
+        assert!(matches!(age, TsonData::Int(30)));
+
+        // Missing field
+        assert!(doc.get("nonexistent").is_none());
+
+        // Nested field lookup — address is itself an Object
+        let address = doc.get("address").unwrap();
+        let city = address.field("city", &doc.definitions).unwrap();
+        assert!(matches!(city, TsonData::String(s) if s == "Anytown"));
+    }
+
+    #[test]
+    fn tson_data_values_len_and_is_empty() {
+        let json = r#"["a", "b", "c"]"#;
+        let doc = tson::compile_json(json).unwrap();
+        let entry = doc.first_entry().unwrap();
+        let arr = &entry.data;
+
+        assert_eq!(arr.len(), 3);
+        assert!(!arr.is_empty());
+        assert_eq!(arr.values().len(), 3);
+    }
+
+    // ── Field access — more edge cases ───────────────────────────────
+
+    #[test]
+    fn document_get_handles_all_primitive_types() {
+        let json = r#"{"b":true,"n":null,"f":3.5,"u":42,"s":"hello"}"#;
+        let doc = tson::compile_json(json).unwrap();
+
+        assert!(matches!(doc.get("b"),  Some(TsonData::Bool(true))));
+        assert!(matches!(doc.get("n"),  Some(TsonData::Null)));
+        assert!(matches!(doc.get("f"),  Some(TsonData::Float(f)) if (*f - 3.5).abs() < 0.01));
+        assert!(matches!(doc.get("u"),  Some(TsonData::Int(42))));
+        assert!(matches!(doc.get("s"),  Some(TsonData::String(s)) if s == "hello"));
+    }
+
+    #[test]
+    fn document_get_returns_none_on_primitive_entry() {
+        // When the first entry is a primitive (not an Object), get() returns None
+        let json = r#""just a string""#;
+        let doc = tson::compile_json(json).unwrap();
+        assert!(doc.get("any_field").is_none());
+    }
+
+    #[test]
+    fn document_get_returns_none_on_empty_document() {
+        let json = r#"null"#;
+        let doc = tson::compile_json(json).unwrap();
+        // Null is a valid entry — get() returns None because it's not an Object
+        assert!(doc.get("anything").is_none());
+    }
+
+    #[test]
+    fn tson_data_field_nested_lookup() {
+        let json = r#"{"user":{"name":"Alice","meta":{"role":"admin"}}}"#;
+        let doc = tson::compile_json(json).unwrap();
+        let defs = &doc.definitions;
+
+        let user = doc.get("user").unwrap();
+        let name = user.field("name", defs).unwrap();
+        assert!(matches!(name, TsonData::String(s) if s == "Alice"));
+
+        let meta = user.field("meta", defs).unwrap();
+        let role = meta.field("role", defs).unwrap();
+        assert!(matches!(role, TsonData::String(s) if s == "admin"));
+    }
+
+    #[test]
+    fn tson_data_values_on_primitives_returns_empty() {
+        assert_eq!(TsonData::Null.values().len(), 0);
+        assert_eq!(TsonData::Bool(true).values().len(), 0);
+        assert_eq!(TsonData::Int(1).values().len(), 0);
+        assert_eq!(TsonData::String("x".to_string()).values().len(), 0);
+    }
+
+    #[test]
+    fn tson_data_len_on_empty_array() {
+        let arr = TsonData::Array(0, 0, vec![]);
+        assert_eq!(arr.len(), 0);
+        assert!(arr.is_empty());
+    }
+
+    // ── Emit + nested field access ─────────────────────────────────
+
+    #[test]
+    fn emit_then_field_access_preserves_value_tree() {
+        use tson::{TsonData, emit};
+        let inner = TsonData::Object(1, vec![
+            TsonData::String("x".to_string()),
+            TsonData::Int(99),
+        ]);
+        let outer = TsonData::Object(0, vec![
+            TsonData::Float(1.5),
+            inner,
+        ]);
+        let bytes = emit(&outer).unwrap();
+        let doc = tson::from_bytes(&bytes).unwrap();
+        let defs = &doc.definitions;
+
+        let f0 = doc.get("f0").unwrap();
+        assert!(matches!(f0, TsonData::Float(v) if (*v - 1.5).abs() < 0.01));
+
+        let f1 = doc.get("f1").unwrap();
+        let inner_val = f1.field("f0", defs).unwrap();
+        assert!(matches!(inner_val, TsonData::String(s) if s == "x"));
+        let inner_num = f1.field("f1", defs).unwrap();
+        assert!(matches!(inner_num, TsonData::Int(99)));
     }
 
     // ── Streaming reader ─────────────────────────────────────────────

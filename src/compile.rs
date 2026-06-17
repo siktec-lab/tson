@@ -256,6 +256,149 @@ fn json_type_tag(value: &JsonValue) -> u8 {
     }
 }
 
+// ─── Direct Data Compilation (Bypasses JSON) ─────────────────────────────
+
+/// Compile a `TsonChunk` slice directly into a `TsonDocument`, bypassing JSON.
+///
+/// Walks the TsonData tree to discover object/array shapes and builds the
+/// string dict.  Field names are synthetic ("f0", "f1", …) since `TsonData`
+/// carries values but not field names.
+///
+/// This is the backend behind `tson::emit()` — useful when you have
+/// structured data from a sensor, database, or API and want TSON binary
+/// without going through `serde_json`.
+pub fn compile_from_data(chunks: &[TsonChunk]) -> Result<TsonDocument, TsonError> {
+    let mut builder = DataCompiler::new();
+    for chunk in chunks {
+        builder.walk(&chunk.data);
+    }
+    builder.finish(chunks)
+}
+
+struct DataCompiler {
+    defs: Vec<TsonDefinition>,
+    shape_index: HashMap<String, u16>,
+    array_index: HashMap<String, u16>,
+    next_idx: u16,
+    dict: Vec<String>,
+    dict_map: HashMap<String, u32>,
+    /// Maps user-provided definition indices → real definition indices.
+    /// The user writes `Object(0, fields)` but the real index might be 6.
+    index_map: HashMap<u16, u16>,
+}
+
+impl DataCompiler {
+    fn new() -> Self {
+        let prims = primitive_defs();
+        Self {
+            next_idx: prims.len() as u16,
+            defs: prims,
+            shape_index: HashMap::new(),
+            array_index: HashMap::new(),
+            dict: Vec::new(),
+            dict_map: HashMap::new(),
+            index_map: HashMap::new(),
+        }
+    }
+
+    fn walk(&mut self, value: &TsonData) {
+        match value {
+            TsonData::String(s) => {
+                self.dict_map.entry(alloc::string::ToString::to_string(s))
+                    .or_insert_with(|| {
+                        let idx = self.dict.len() as u32;
+                        self.dict.push(alloc::string::ToString::to_string(s));
+                        idx
+                    });
+            }
+            TsonData::Object(def_idx, fields) => {
+                let mut type_tags = String::new();
+                for (i, field) in fields.iter().enumerate() {
+                    if i > 0 { type_tags.push(','); }
+                    type_tags.push(TAG_CHARS[field.type_tag() as u8 as usize] as char);
+                    self.walk(field);
+                }
+                let sign = format!("obj:{}:{}", def_idx, type_tags);
+                let new_idx = if let Some(&idx) = self.shape_index.get(&sign) { idx }
+                else {
+                    let idx = self.alloc_def();
+                    let mut field_defs = Vec::with_capacity(fields.len());
+                    for (fi, field) in fields.iter().enumerate() {
+                        let name = alloc::string::ToString::to_string(&format!("f{}", fi));
+                        field_defs.push((name, field.type_tag()));
+                    }
+                    self.defs.push(TsonDefinition {
+                        def_type: TsonType::Object, index: idx, name: None,
+                        fields: Some(field_defs), elem_type: None,
+                    });
+                    self.shape_index.insert(sign, idx);
+                    idx
+                };
+                // Record mapping from user's index to real index
+                self.index_map.insert(*def_idx, new_idx);
+            }
+            TsonData::Array(self_def, _elem_def, items) => {
+                let elem_tag = items.first().map(|i| i.type_tag()).unwrap_or(TsonType::Null);
+                let sign = format!("arr:{}:{}", self_def, elem_tag as u8);
+                let new_idx = if let Some(&idx) = self.array_index.get(&sign) { idx }
+                else {
+                    let idx = self.alloc_def();
+                    self.defs.push(TsonDefinition {
+                        def_type: TsonType::Array, index: idx, name: None,
+                        fields: None, elem_type: Some(elem_tag),
+                    });
+                    self.array_index.insert(sign, idx);
+                    idx
+                };
+                self.index_map.insert(*self_def, new_idx);
+                for item in items { self.walk(item); }
+            }
+            _ => {}
+        }
+    }
+
+    fn alloc_def(&mut self) -> u16 {
+        let idx = self.next_idx;
+        self.next_idx += 1;
+        idx
+    }
+
+    /// Recursively rewrite definition indices in a TsonData tree using
+    /// the index_map (old user-provided index → real definition index).
+    fn rewrite_indices(&self, data: &TsonData) -> TsonData {
+        match data {
+            TsonData::Object(old_def, fields) => {
+                let new_def = self.index_map.get(old_def).copied().unwrap_or(*old_def);
+                let new_fields: Vec<TsonData> = fields.iter().map(|f| self.rewrite_indices(f)).collect();
+                TsonData::Object(new_def, new_fields)
+            }
+            TsonData::Array(old_self, old_elem, items) => {
+                let new_self = self.index_map.get(old_self).copied().unwrap_or(*old_self);
+                let new_elem = self.index_map.get(old_elem).copied().unwrap_or(*old_elem);
+                let new_items: Vec<TsonData> = items.iter().map(|i| self.rewrite_indices(i)).collect();
+                TsonData::Array(new_self, new_elem, new_items)
+            }
+            _ => data.clone(),
+        }
+    }
+
+    fn finish(self, chunks: &[TsonChunk]) -> Result<TsonDocument, TsonError> {
+        let mapped: Vec<TsonChunk> = chunks.iter().map(|c| {
+            TsonChunk {
+                definition_index: self.index_map.get(&c.definition_index)
+                    .copied().unwrap_or(c.definition_index),
+                data: self.rewrite_indices(&c.data),
+            }
+        }).collect();
+        Ok(TsonDocument {
+            header: TsonHeader::new(1, TsonHeader::SIZE as u32, 0, 0),
+            definitions: self.defs,
+            dict: self.dict,
+            data: mapped,
+        })
+    }
+}
+
 fn resolve_elem_def(elements: &[TsonData]) -> u16 {
     elements.iter().find_map(|e| match e {
         TsonData::Object(idx, _) => Some(*idx),
