@@ -466,6 +466,121 @@ mod roundtrip_tests {
         assert!(matches!(inner_num, TsonData::Int(99)));
     }
 
+    // ── index() + get_by_index() — O(1) repeated field access ────────
+
+    #[test]
+    fn index_and_get_by_index() {
+        let json = r#"{"name":"Alice","age":30,"city":"NYC"}"#;
+        let doc = tson::compile_json(json).unwrap();
+
+        let name_idx = doc.index("name").unwrap();
+        let age_idx = doc.index("age").unwrap();
+        let city_idx = doc.index("city").unwrap();
+
+        assert!(matches!(doc.get_by_index(name_idx), Some(TsonData::String(s)) if s == "Alice"));
+        assert!(matches!(doc.get_by_index(age_idx), Some(TsonData::Int(30))));
+        assert!(matches!(doc.get_by_index(city_idx), Some(TsonData::String(s)) if s == "NYC"));
+        assert!(doc.get_by_index(999).is_none(), "out of bounds returns None");
+
+        // Missing field
+        assert!(doc.index("missing").is_none());
+    }
+
+    #[test]
+    fn index_and_get_by_index_primitive_root() {
+        let json = r#""just a string""#;
+        let doc = tson::compile_json(json).unwrap();
+        assert!(doc.index("anything").is_none());
+        assert!(doc.get_by_index(0).is_none());
+    }
+
+    // ── emit_with_context() — reuse existing defs+dict for responses ──
+
+    #[test]
+    fn emit_with_context_roundtrip() {
+        // First: compile JSON for the response shape (field types: String, Int)
+        let template = r#"{"f0":"x","f1":0}"#;
+        let tpl_doc = tson::compile_json(template).unwrap();
+        let defs = tpl_doc.definitions.clone();
+        let dict = tpl_doc.dict.clone();
+
+        // Find the response object's definition index
+        let obj_def = defs.iter().find(|d| d.def_type == tson::TsonType::Object).unwrap();
+        let def_idx = obj_def.index;
+
+        // Build a response value using the template's defs+dict
+        let response = tson::TsonData::Object(def_idx, vec![
+            tson::TsonData::String("processed".to_string()),
+            tson::TsonData::Int(42),
+        ]);
+        let bytes = tson::emit_with_context(&response, &defs, &dict).unwrap();
+        assert!(!bytes.is_empty(), "emit_with_context produced bytes");
+
+        // Decode and verify
+        let restored = tson::from_bytes(&bytes).unwrap();
+        let restored_json = tson::decompile_to_value(&restored).unwrap();
+        assert_eq!(restored_json["f0"].as_str().unwrap(), "processed");
+        assert_eq!(restored_json["f1"].as_i64().unwrap(), 42);
+    }
+
+    #[test]
+    fn emit_with_context_reuses_dict() {
+        let template = r#"{"status":"ok","code":0}"#;
+        let tpl_doc = tson::compile_json(template).unwrap();
+        let defs = tpl_doc.definitions.clone();
+        let dict = tpl_doc.dict.clone();
+        let obj_def = defs.iter().find(|d| d.def_type == tson::TsonType::Object).unwrap();
+        let def_idx = obj_def.index;
+
+        // Reuse dict: values must be in DEFINITION ORDER.
+        // Template defines: code=Int, status=String (alphabetical order).
+        let response = tson::TsonData::Object(def_idx, vec![
+            tson::TsonData::Int(200),          // code first
+            tson::TsonData::String("ok".to_string()), // status second
+        ]);
+        let bytes = tson::emit_with_context(&response, &defs, &dict).unwrap();
+        let restored = tson::from_bytes(&bytes).unwrap();
+        assert_eq!(restored.dict.len(), dict.len(),
+            "emit_with_context should preserve dict content");
+    }
+
+    // ── TsonDocReader — multi-document stream ────────────────────────
+
+    #[test]
+    fn tson_doc_reader_multi_document() {
+        use tson::stream::TsonDocReader;
+        use std::io::Cursor;
+
+        let json1 = r#"{"a":1}"#;
+        let json2 = r#"{"b":2}"#;
+        let doc1 = tson::compile_json(json1).unwrap();
+        let doc2 = tson::compile_json(json2).unwrap();
+        let bin1 = tson::to_bytes(&doc1).unwrap();
+        let bin2 = tson::to_bytes(&doc2).unwrap();
+
+        // Build a length-prefixed stream: [4B LE len][TSON binary] × 2
+        let mut stream = Vec::new();
+        stream.extend_from_slice(&(bin1.len() as u32).to_le_bytes());
+        stream.extend_from_slice(&bin1);
+        stream.extend_from_slice(&(bin2.len() as u32).to_le_bytes());
+        stream.extend_from_slice(&bin2);
+
+        let cursor = Cursor::new(stream);
+        let mut reader = TsonDocReader::new(cursor);
+        let mut count = 0;
+        for result in &mut reader {
+            let doc = result.unwrap();
+            count += 1;
+            assert!(doc.data.len() >= 1, "each doc has at least one entry");
+        }
+        assert_eq!(count, 2, "read 2 documents from the stream");
+
+        // EOF: empty stream should yield nothing
+        let cursor = Cursor::new(Vec::new());
+        let mut reader = TsonDocReader::new(cursor);
+        assert!(reader.next().is_none(), "empty stream yields None");
+    }
+
     // ── Streaming reader ─────────────────────────────────────────────
 
     #[test]

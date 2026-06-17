@@ -196,4 +196,32 @@ impl TsonDocument {
     pub fn entries(&self) -> impl Iterator<Item = &TsonChunk> {
         self.data.iter()
     }
+
+    /// Resolve a field name to its positional index for O(1) repeated access.
+    ///
+    /// Use this when extracting the same field from many documents — resolve
+    /// the index once, then use `get_by_index()` in a hot loop.
+    pub fn index(&self, field_name: &str) -> Option<usize> {
+        let entry = self.first_entry()?;
+        match &entry.data {
+            TsonData::Object(def_idx, _) => {
+                let def = self.definitions.iter().find(|d| d.index == *def_idx)?;
+                let field_defs = def.fields.as_ref()?;
+                field_defs.iter().position(|(name, _)| name == field_name)
+            }
+            _ => None,
+        }
+    }
+
+    /// Get a field value by positional index (from `index()`).
+    ///
+    /// O(1) lookup — no string comparison. Returns `None` if the index is
+    /// out of bounds or the first entry is not an Object.
+    pub fn get_by_index(&self, index: usize) -> Option<&TsonData> {
+        let entry = self.first_entry()?;
+        match &entry.data {
+            TsonData::Object(_, values) => values.get(index),
+            _ => None,
+        }
+    }
 }

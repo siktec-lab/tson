@@ -83,6 +83,55 @@ let value = tson::decompile_to_value(&doc).unwrap();
 
 Field names are synthetic (`"f0"`, `"f1"`, …) since `TsonData` values don't carry names. Definitions and the string dict are discovered automatically from the value tree.
 
+## Server Response Path — `emit_with_context()`
+
+Reuse an incoming document's definitions and dict to emit a response — no schema re-discovery, no dict rebuild.
+
+```rust
+use tson::{TsonData, emit_with_context};
+
+let response = TsonData::Object(6, vec![
+    TsonData::String("processed".to_string()),
+    TsonData::Int(42),
+]);
+let bytes = emit_with_context(&response, &incoming_defs, &incoming_dict).unwrap();
+```
+
+Field values must be in **definition field order** (alphabetical).
+
+## Direct Field Access — `doc.get()`, `doc.index()`, `doc.get_by_index()`
+
+Extract values without decompiling to JSON. O(1) access when you pre-resolve field indices:
+
+```rust
+let doc = tson::compile_json(r#"{"name":"Alice","age":30}"#).unwrap();
+
+// By name (linear scan)
+let name = doc.get("name").unwrap();
+let age = doc.get("age").unwrap();
+
+// Or pre-resolve index for O(1) repeated access
+let name_idx = doc.index("name").unwrap();
+for _ in 0..1000 {
+    let n = doc.get_by_index(name_idx).unwrap();
+}
+```
+
+## Multi-Document Stream — `TsonDocReader`
+
+Read length-prefixed TSON documents from any byte source (archives, TCP streams).
+
+```rust
+use tson::stream::TsonDocReader;
+use std::io::Cursor;
+
+for doc in TsonDocReader::new(cursor) {
+    println!("Defs: {}", doc.unwrap().definitions.len());
+}
+```
+
+Each document is prefixed by a 4-byte LE length `u32` followed by the TSON binary.
+
 ## Command-Line Tool
 
 ```bash

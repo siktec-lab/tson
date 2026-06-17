@@ -49,6 +49,66 @@ pub fn emit_value(data: &TsonData) -> Result<Vec<u8>, TsonError> {
     encode::encode_value(data)
 }
 
+/// Emit a `TsonData` value as a complete TSON document, reusing pre-existing
+/// definitions and dict from an incoming document.
+///
+/// This is the **server response path**: receive a TSON message, extract
+/// fields, build a response value, and emit it back using the incoming
+/// message's definitions. No schema re-discovery, no dict rebuild — just
+/// encode using the already-parsed context.
+///
+/// # Example
+///
+/// ```rust
+/// use tson::{TsonData, TsonDefinition, TsonType, emit_with_context};
+/// // defs and dict come from a previously parsed TsonDocument
+/// let dummy_defs = vec![
+///     TsonDefinition { def_type: TsonType::Null, index: 0, name: None, fields: None, elem_type: None },
+///     TsonDefinition { def_type: TsonType::Object, index: 7, name: None,
+///         fields: Some(vec![("f0".into(), TsonType::String), ("f1".into(), TsonType::Float)]),
+///         elem_type: None },
+/// ];
+/// let response = TsonData::Object(7, vec![
+///     TsonData::String("alert".to_string()),
+///     TsonData::Float(35.2),
+/// ]);
+/// let bytes = emit_with_context(&response, &dummy_defs, &[]).unwrap();
+/// assert!(bytes.len() > 13, "produces a complete document");
+/// ```
+#[allow(dead_code)]
+pub fn emit_with_context(
+    data: &TsonData,
+    defs: &[TsonDefinition],
+    dict: &[String],
+) -> Result<Vec<u8>, TsonError> {
+    // Extract the definition index from the data value itself
+    let def_index = def_index_for_value(data);
+    let doc = TsonDocument {
+        header: TsonHeader::new(1, TsonHeader::SIZE as u32, 0, 0),
+        definitions: defs.to_vec(),
+        dict: dict.to_vec(),
+        data: vec![TsonChunk {
+            definition_index: def_index,
+            data: data.clone(),
+        }],
+    };
+    encode::encode_document(&doc)
+}
+
+/// Extract the definition index from a TsonData value.
+fn def_index_for_value(data: &TsonData) -> u16 {
+    match data {
+        TsonData::Null           => 0,
+        TsonData::Bool(_)        => 1,
+        TsonData::Int(_)         => 2,
+        TsonData::UInt(_)        => 3,
+        TsonData::Float(_)       => 4,
+        TsonData::String(_) | TsonData::StrRef(_) => 5,
+        TsonData::Array(def, _, _) => *def,
+        TsonData::Object(def, _)   => *def,
+    }
+}
+
 // ─── Raw-bytes round-trip ──────────────────────────────────────────────────
 
 /// Encode a `TsonDocument` to its binary representation.

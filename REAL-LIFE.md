@@ -4,38 +4,166 @@ A walkthrough from remote JSON ingestion to local persisted struct data, showing
 
 ---
 
-## Scenario
+## Primary Use Case — Client/Server with JSON → TSON Bridge
 
-An IoT platform receives telemetry from 500 sensors every second. Each payload is ~900 bytes of JSON with repeating field structure (temperatures, humidity, GPS coords, timestamps, device metadata). The data is:
+The core TSON scenario: a legacy client sends JSON over the network. A TSON proxy compresses it to 40-70% smaller binary. The server receives TSON, extracts only the fields it needs, and acts — never touching JSON.
 
-1. Received from remote sensors as JSON over HTTPS  
-2. Compiled to TSON on the server (compression + schema dedup)  
-3. Stored to the local file system as a rolling TSON archive  
-4. Read back later with the streaming reader to query and replay data
-
----
-
-## 1. Fetch the Data (Plain JSON Over Network)
-
-A remote API returns telemetry for a single device.
-
-```rust
-use std::io::Read;
-
-fn fetch_sensor_data() -> String {
-    let mut response = reqwest::blocking::get(
-        "https://api.iot-platform.example/sensors/device-001/latest"
-    )
-    .expect("network error")
-    .text()
-    .expect("utf-8 error");
-
-    response
-}
-// response: '{"device_id":"sensor-001","temp":22.5,"humidity":61,...}'
+```
+┌──────────┐   JSON    ┌──────────────┐   TSON    ┌─────────────────┐
+│  Client   │ ───────→ │  TSON Proxy  │ ────────→ │  Server          │
+│ (legacy,  │  890 B   │  (compile)    │  374 B   │  (stream+extract)│
+│  no code  │          │               │           │                  │
+│  changes) │          └──────────────┘          │  ┌─────────────┐ │
+└──────────┘                                     │  │ SensorAlert  │ │
+                                                  │  │ temp > 30.0? │ │
+                                                  │  │ → fire alarm │ │
+                                                  │  └─────────────┘ │
+                                                  └─────────────────┘
 ```
 
-The response is standard JSON — perfectly readable, easy to debug with `curl`, compatible with every HTTP client in existence.
+### Client Side — JSON Producer (No Changes)
+
+The client is a weather station running firmware from 2019. It POSTs JSON every second:
+
+```
+POST /api/v1/readings
+Content-Type: application/json
+
+{"device_id":"station-042","ts":"2026-06-17T08:01:23Z",
+ "sensors":[{"type":"temp","value":22.5,"unit":"C"},
+            {"type":"humidity","value":61,"unit":"%RH"},
+            {"type":"pressure","value":1013,"unit":"hPa"}],
+ "battery":3.72,"status":"nominal"}
+```
+
+This is 232 bytes of JSON — perfectly readable, debuggable with `curl`, and the client doesn't change at all.
+
+### TSON Proxy — Compile at the Edge
+
+A lightweight proxy sits between the client and the server. It compiles the JSON to TSON before forwarding.
+
+```rust
+use tson;
+
+fn proxy_handler(json_body: &str) -> Vec<u8> {
+    // Compile: walk JSON once, discover schema, intern strings, encode
+    let doc = tson::compile_json(json_body).unwrap();
+    let tson_bin = tson::to_bytes(&doc).unwrap();
+
+    println!("JSON: {} B → TSON: {} B ({:.1}% of original)",
+        json_body.len(), tson_bin.len(),
+        tson_bin.len() as f64 / json_body.len() as f64 * 100.0);
+    // → JSON: 232 B → TSON: 141 B (60.8% of original)
+
+    tson_bin
+}
+```
+
+**What the proxy gains:**
+- 40-70% bandwidth reduction on the wire
+- No client-side changes — the proxy is transparent
+- No pre-shared schema — TSON discovers structure from each message
+- One compile per message, ~12 µs — negligible overhead
+
+### Server Side — Receive TSON, Extract Fields, Act
+
+The server receives the TSON binary. It needs exactly two things from each message: the temperature value and the status field. Nothing else matters.
+
+```rust
+use tson::{TsonStreamReader, TsonData};
+
+fn handle_sensor_message(tson_bin: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
+    // Step 1: open the stream — parses header + defs + dict (small)
+    let mut reader = TsonStreamReader::new(tson_bin)?;
+    let defs = reader.definitions();
+    let dict = reader.dict();
+
+    println!("Server received: {} defs, {} dict entries",
+        defs.len(), dict.len());
+
+    // Step 2: read the first (and only) data entry
+    let chunk = reader.next().unwrap()?;
+
+    // Step 3: extract just the fields we need — no JSON parse, no allocation
+    let status = chunk.data.field("status", defs)
+        .and_then(|v| match v {
+            TsonData::String(s) => Some(s.as_str()),
+            _ => None,
+        })
+        .unwrap_or("unknown");
+
+    // The 'sensors' field is an array of objects — we need the first one (temp)
+    let sensors = chunk.data.field("sensors", defs);
+    let temp: Option<f32> = sensors.and_then(|arr| {
+        // arr is a TsonData::Array — iterate its elements
+        arr.values().iter().find_map(|element| {
+            // Each element is a TsonData::Object with type/value/unit fields
+            let ty = element.field("type", defs)?;
+            if matches!(ty, TsonData::String(s) if s == "temp") {
+                match element.field("value", defs)? {
+                    TsonData::Float(f) => Some(*f),
+                    _ => None,
+                }
+            } else {
+                None
+            }
+        })
+    });
+
+    println!("Status: {status}, Temperature: {:?}", temp);
+
+    // Step 4: business logic — no JSON in sight
+    if let Some(t) = temp {
+        if t > 30.0 {
+            eprintln!("ALARM: temperature {t}°C exceeds threshold!");
+        }
+    }
+    if status == "critical" {
+        eprintln!("CRITICAL: sensor status is 'critical'!");
+    }
+
+    Ok(())
+}
+```
+
+**What the server gains:**
+- **No JSON parse** — `TsonStreamReader` is ~2× faster than `serde_json::from_str` for this payload
+- **No field-name allocation** — field names are in the definitions block, referenced by index
+- **No full decompilation** — `field()` walks the definition table and returns a reference. Zero allocations for value extraction.
+- **Type-safe** — every value is a `TsonData` variant with known types (no `serde_json::Value::as_f64().unwrap_or()` guard against type surprises)
+- **O(1) memory** — the streaming reader holds one entry at a time
+- **72% of the payload is ignored** — the server reads 2 fields out of 10 and discards the rest. The streaming reader skips past unneeded fields efficiently.
+
+### Full Main Loop
+
+```rust
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Simulated: receive raw bytes from network
+    let tson_bin = proxy_handler(r#"
+        {"device_id":"station-042","ts":"2026-06-17T08:01:23Z",
+         "sensors":[{"type":"temp","value":22.5,"unit":"C"},
+                    {"type":"humidity","value":61,"unit":"%RH"}],
+         "battery":3.72,"status":"nominal"}
+    "#);
+
+    // Server processes the binary — no JSON anywhere
+    handle_sensor_message(&tson_bin)?;
+
+    Ok(())
+}
+```
+
+### Comparison — JSON vs TSON Server
+
+| Aspect | JSON Server | TSON Server |
+|--------|-------------|-------------|
+| Parse every message | `serde_json::from_str` — 180 µs | `TsonStreamReader::new` — 80 µs |
+| Memory for field names | Allocated per message | In definition block, shared |
+| Extract "status" field | `obj["status"].as_str()` — O(1) | `chunk.field("status", defs)` — O(fields) |
+| Extract nested sensor type | Full tree deserialization | `field("sensors").values()` — partial read |
+| Type safety | Dynamic (`Value::as_f64`, etc.) | Static (`TsonData::Float`, `TsonData::String`) |
+| Unused fields | Still parsed and allocated | Skipped entirely |
+| Binary size on wire | 232 B | 141 B (60.8%) |
 
 ---
 

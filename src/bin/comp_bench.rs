@@ -172,7 +172,7 @@ fn main() {
     println!("  • first_entry().data.len(): {:.1} ns", len_ns);
 
     // doc.get("name") — field lookup by name (Object roots only)
-    if let Some(name_val) = doc.get("name") {
+    if let Some(_name_val) = doc.get("name") {
         let start = Instant::now();
         for _ in 0..ITERS {
             let _ = doc.get("name");

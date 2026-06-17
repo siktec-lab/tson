@@ -5,7 +5,57 @@ See [README.md](README.md) for the project overview and [TSON-FORMAT.md](TSON-FO
 
 ---
 
-## 1. Quick Start — Compile & Decompile
+## 1. Primary Use Case — Client/Server with JSON→TSON Bridge
+
+A legacy client sends plain JSON. A TSON proxy compresses it to 40-70% smaller binary. The server receives TSON, extracts only the fields it needs, and acts — never touching JSON.
+
+```
+Client (JSON)  →  Proxy (compile)  →  Server (stream + extract fields)
+  890 B              ~12 µs               374 B, no JSON parse
+```
+
+### Server Side — Extract & Act
+
+```rust
+use tson::{TsonStreamReader, TsonData};
+
+fn handle_sensor_message(tson_bin: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
+    let mut reader = TsonStreamReader::new(tson_bin)?;
+    let defs = reader.definitions();
+
+    // Read one entry, extract exactly the fields we need
+    let chunk = reader.next().unwrap()?;
+
+    // Direct field access — no JSON, no allocation, type-safe
+    let status = chunk.data.field("status", defs)
+        .and_then(|v| match v { TsonData::String(s) => Some(s.as_str()), _ => None })
+        .unwrap_or("unknown");
+
+    // Nested array access — find the temperature sensor
+    let temp = chunk.data.field("sensors", defs)
+        .and_then(|arr| arr.values().iter().find_map(|el| {
+            el.field("type", defs).and_then(|t| {
+                if matches!(t, TsonData::String(s) if s == "temp") {
+                    match el.field("value", defs)? { TsonData::Float(f) => Some(*f), _ => None }
+                } else { None }
+            })
+        }));
+
+    // Business logic — JSON never entered the server
+    if let Some(t) = temp { if t > 30.0 { alert!("high temp"); } }
+    Ok(())
+}
+```
+
+**Why this matters:**
+- No `serde_json` parse — 2× faster, ~2.4 µs decode vs ~180 µs JSON parse
+- No field-name allocation — names are in the definitions block, shared across all entries
+- Type-safe extraction — `TsonData::Float` not `Value::as_f64().unwrap_or()`
+- 72% of payload ignored — the server extracts 2 fields out of 10, streams past the rest
+
+---
+
+## 2. Quick Start — Compile & Decompile
 
 The most common path: JSON string → TSON binary → JSON string.
 
@@ -123,7 +173,66 @@ for val in entry.data.values() {
 | `Object` | field value slice | lookup by name | field count |
 
 
-## 4. Streaming Reader
+## 4. Server Response Path — `emit_with_context()`
+
+When a server receives a TSON message and needs to emit a response, it can reuse the incoming definitions and dict. This avoids re-discovering schemas and re-building the dict.
+
+```rust
+use tson::{TsonData, emit_with_context};
+
+// defs and dict come from a previously parsed incoming TsonDocument
+let response = TsonData::Object(6, vec![
+    TsonData::String("processed".to_string()),
+    TsonData::Int(42),
+]);
+let bytes = emit_with_context(&response, &incoming_defs, &incoming_dict).unwrap();
+// bytes is a complete, valid TSON document — using the same schemas as the request
+```
+
+**Key requirement**: field values must be in **definition field order** (alphabetical). The template used to define the response shape determines the field order and types.
+
+## 5. O(1) Field Access — `doc.index()` + `doc.get_by_index()`
+
+When extracting the same field from many documents, resolve the field name to an index once, then use O(1) index-based access.
+
+```rust
+let doc = tson::compile_json(r#"{"name":"Alice","age":30}"#).unwrap();
+
+// Resolve once
+let name_idx = doc.index("name").unwrap();
+let age_idx = doc.index("age").unwrap();
+
+// Use many times — no string comparison
+for _ in 0..1000 {
+    let name = doc.get_by_index(name_idx).unwrap();
+    let age = doc.get_by_index(age_idx).unwrap();
+    // process...
+}
+```
+
+| Method | Returns | Cost |
+|--------|---------|------|
+| `doc.index("name")` | `Option<usize>` | O(fields) — one-time |
+| `doc.get_by_index(idx)` | `Option<&TsonData>` | O(1) — array lookup |
+
+## 6. Multi-Document Stream — `TsonDocReader`
+
+For archives or raw TCP streams where many TSON documents are concatenated with a 4-byte length prefix, use `TsonDocReader`.
+
+```rust
+use tson::stream::TsonDocReader;
+use std::io::Cursor;
+
+let cursor = Cursor::new(archive_bytes);
+for doc_result in TsonDocReader::new(cursor) {
+    let doc = doc_result.unwrap();
+    println!("Defs: {}, Entries: {}", doc.definitions.len(), doc.data.len());
+}
+```
+
+**Format**: each document is prefixed by a 4-byte LE length `u32`, followed by the TSON binary blob. This is the same format used by the `RollingArchive` pattern in REAL-LIFE.md.
+
+## 7. Streaming Reader
 
 For large datasets, the streaming reader processes entries one-at-a-time with `O(1)` additional memory per entry.
 

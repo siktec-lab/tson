@@ -48,7 +48,7 @@ pub mod decompile;
 
 pub use tson::{
     TsonChunk, TsonData, TsonDefinition, TsonDocument, TsonHeader, TsonType,
-    emit, emit_value, to_bytes, from_bytes, decode_definitions,
+    emit, emit_value, emit_with_context, to_bytes, from_bytes, decode_definitions,
 };
 pub use stream::TsonStreamReader;
 
