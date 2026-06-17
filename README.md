@@ -308,6 +308,41 @@ TSON prioritizes safe decoding of untrusted input. The reference implementation 
 
 See the [Security Considerations](TSON-FORMAT.md#10-security-considerations) section in TSON-FORMAT.md for full details.
 
+## Testing
+
+Three language bindings, one `make` target each.
+
+| Language | Command | Tests |
+|----------|---------|-------|
+| **Rust** | `make test-rust` | 48 unit + 3 doctests |
+| **Python** | `make test-python` | 9 tests (round-trip, file I/O, emit, compression) |
+| **Node.js** | `make test-node` | 8 tests (dumps/loads, file, emit, errors) |
+| **All** | `make test` | Full cross-language suite |
+
+### Quick Run
+
+```bash
+make help           # show all commands
+make test-rust      # Rust only (always works)
+make test-python    # requires: pip install maturin
+make test-node      # requires: cd js && npm install
+make test           # all three
+make bench          # benchmarks
+```
+
+The Makefile handles Python wheel build (`maturin develop`) and Node.js addon build (`npx napi build`) automatically. Full reference:
+
+```bash
+make check          # cargo check
+make build          # cargo build --release
+make test           # run all tests
+make bench          # run all benchmarks
+make bench-size     # compression summary
+make bench-perf     # detailed performance
+make clean          # cargo clean
+make all            # build everything (Rust + Python + Node)
+```
+
 ## Full Format Specification
 
 See [TSON-FORMAT.md](TSON-FORMAT.md) for the complete binary wire protocol with byte-level examples and BNF grammar.
