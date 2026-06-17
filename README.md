@@ -58,6 +58,31 @@ let value = tson::decompile_to_value(&restored).unwrap();
 assert_eq!(value.to_string(), r#"{"age":30,"name":"Alice"}"#);
 ```
 
+## Emit Mode (Bypass JSON)
+
+Need TSON binary directly from structured data without parsing JSON? `tson::emit()` takes a `TsonData` tree and produces a complete TSON document.
+
+```rust
+use tson::{TsonData, emit};
+
+// Build a sensor reading value tree directly
+let reading = TsonData::Object(0, vec![
+    TsonData::Float(22.5),                   // temperature
+    TsonData::Int(61),                       // humidity
+    TsonData::String("nominal".to_string()), // status
+]);
+
+// Emit as TSON binary — no JSON parse step
+let bytes = emit(&reading).unwrap();
+
+// Decode back
+let doc = tson::from_bytes(&bytes).unwrap();
+let value = tson::decompile_to_value(&doc).unwrap();
+// value = {"f0": 22.5, "f1": 61, "f2": "nominal"}
+```
+
+Field names are synthetic (`"f0"`, `"f1"`, …) since `TsonData` values don't carry names. Definitions and the string dict are discovered automatically from the value tree.
+
 ## Command-Line Tool
 
 ```bash
