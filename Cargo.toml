@@ -8,19 +8,17 @@ default-run = "tson-cli"
 [lib]
 name = "tson"
 path = "src/lib.rs"
+crate-type = ["lib", "cdylib"]
 
 [[bin]]
 name = "tson-cli"
 path = "src/main.rs"
-
 [[bin]]
 name = "tson-bench"
 path = "src/bin/bench.rs"
-
 [[bin]]
 name = "gen-examples"
 path = "src/bin/gen_examples.rs"
-
 [[bin]]
 name = "comp-bench"
 path = "src/bin/comp_bench.rs"
@@ -30,13 +28,19 @@ default = ["std", "json", "dict"]
 std = []
 json = ["serde", "serde_json"]
 dict = []
+python = ["pyo3"]
+nodejs = ["napi", "napi-derive"]
 
 [dependencies]
 thiserror = "2.0"
-
-# Optional: JSON interop (behind the "json" feature)
 serde = { version = "1.0", features = ["derive"], optional = true }
 serde_json = { version = "1.0", optional = true }
+pyo3 = { version = "0.23", features = ["extension-module"], optional = true }
+napi = { version = "2", features = ["napi8", "serde-json"], optional = true }
+napi-derive = { version = "2", optional = true }
 
 [dev-dependencies]
 serde_json = "1.0"
+
+[profile.release]
+lto = true

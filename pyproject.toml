@@ -1,0 +1,17 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "tson"
+version = "0.1.0"
+description = "Terse JSON — compact binary JSON for microcontrollers"
+requires-python = ">=3.8"
+keywords = ["json", "binary", "serialization", "embedded", "iot"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: 3",
+]

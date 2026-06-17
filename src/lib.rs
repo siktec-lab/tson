@@ -52,6 +52,16 @@ pub use tson::{
 };
 pub use stream::TsonStreamReader;
 
+// ─── Python bindings (optional, behind `python` feature) ─────────────────
+
+#[cfg(feature = "python")]
+pub mod python;
+
+// ─── Node.js bindings (optional, behind `nodejs` feature) ────────────────
+
+#[cfg(feature = "nodejs")]
+pub mod nodejs;
+
 #[cfg(feature = "json")]
 pub use tson::{
     compile_json, compile_json_file, compile_value,

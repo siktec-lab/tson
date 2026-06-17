@@ -1,0 +1,17 @@
+{
+  "name": "tson",
+  "version": "0.1.0",
+  "description": "Terse JSON — compact binary JSON for microcontrollers",
+  "main": "index.js",
+  "scripts": {
+    "build": "napi build --platform --release",
+    "test": "node js/test.js",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^2"
+  },
+  "napi": {
+    "name": "tson"
+  }
+}
