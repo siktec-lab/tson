@@ -99,6 +99,7 @@ pub enum TsonData {
     Object(u16, Vec<TsonData>),
 }
 
+#[allow(dead_code)]
 impl TsonData {
     /// Get a field value by name from an Object value.
     ///
@@ -178,6 +179,7 @@ pub struct TsonDocument {
     pub data: Vec<TsonChunk>,
 }
 
+#[allow(dead_code)]
 impl TsonDocument {
     /// Access the first data entry, if any.
     pub fn first_entry(&self) -> Option<&TsonChunk> {
