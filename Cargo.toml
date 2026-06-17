@@ -28,8 +28,8 @@ default = ["std", "json", "dict"]
 std = []
 json = ["serde", "serde_json"]
 dict = []
-python = ["pyo3"]
-nodejs = ["napi", "napi-derive"]
+python = ["pyo3", "json"]
+nodejs = ["napi", "napi-derive", "json"]
 
 [dependencies]
 thiserror = "2.0"

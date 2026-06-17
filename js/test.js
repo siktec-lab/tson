@@ -7,7 +7,7 @@ const assert = require('assert').strict;
 // Skip if bindings aren't built
 let tson;
 try {
-    tson = require('../index');
+    tson = require('./index');
 } catch {
     console.log('SKIP: tson native module not built. Run: npx napi build --platform --release');
     process.exit(0);

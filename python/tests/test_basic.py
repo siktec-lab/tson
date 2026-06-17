@@ -2,20 +2,21 @@
 
 Run with:
     pip install maturin
-    maturin develop
-    pytest python/tests/
+    maturin build --release
+    pip install target/wheels/tson-*.whl
+    pytest python/tests/ -v
 """
 import json
 import os
 import sys
 import tempfile
 
+import pytest
+
 try:
     import tson
 except ImportError:
-    pytest.skip("tson module not built - run `maturin develop` first", allow_module_level=True)
-
-import pytest
+    pytest.skip("tson module not built — run `maturin build --release && pip install target/wheels/tson-*.whl`", allow_module_level=True)
 
 
 class TestDumpsLoads:
@@ -68,13 +69,12 @@ class TestDumpLoad:
 
 
 class TestEmit:
-    """Direct dict/list -> TSON (no JSON string)."""
+    """Direct dict/list => TSON (no JSON string)."""
 
     def test_emit_dict(self):
         blob = tson.emit({"temp": 22.5, "unit": "C"})
         assert isinstance(blob, (bytes, bytearray))
         result = tson.loads(blob)
-        # Synthetic field names "f0", "f1" since dict key order is lost
         assert isinstance(result, dict)
 
     def test_emit_list(self):

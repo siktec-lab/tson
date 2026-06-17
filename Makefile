@@ -41,9 +41,10 @@ clean:  ## Cargo clean
 
 python-build:  ## Build Python wheel
 	@echo "==> Building Python wheel..."
-	@pip install maturin >/dev/null 2>&1 || true
+	@pip install maturin 2>/dev/null || true
 	@cargo check --features python || { echo "FAIL: cargo check"; exit 1; }
-	@maturin develop 2>/dev/null && echo "   ok" || { echo "FAIL: maturin develop"; echo "   Install: pip install maturin"; exit 1; }
+	@maturin build --release 2>&1 | grep -q "Built wheel" && echo "   ok" || { echo "FAIL: maturin build"; echo "   Last output:"; maturin build --release 2>&1; exit 1; }
+	@pip install target/wheels/tson-*.whl 2>/dev/null || true
 
 test-python: python-build  ## Build + run Python tests
 	@echo "==> Running Python tests..."
@@ -53,8 +54,8 @@ test-python: python-build  ## Build + run Python tests
 
 node-build:  ## Build Node.js addon
 	@echo "==> Building Node.js addon..."
-	@cargo check --features nodejs,json || { echo "FAIL: cargo check"; exit 1; }
-	@cd js && npx napi build --platform --release 2>/dev/null && echo "   ok" || { echo "FAIL: napi build"; echo "   Install: npm install @napi-rs/cli"; exit 1; }
+	@cargo check --features nodejs || { echo "FAIL: cargo check"; exit 1; }
+	@npx napi build --platform --release --package-json-path js/package.json --output-dir js --features nodejs 2>/dev/null && echo "   ok" || { echo "FAIL: napi build"; echo "   Install: npm install @napi-rs/cli"; exit 1; }
 
 test-node: node-build  ## Build + run Node tests
 	@echo "==> Running Node.js tests..."
