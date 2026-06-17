@@ -210,64 +210,55 @@ pub fn open_stream(bytes: &[u8]) -> Result<TsonStreamReader<'_>, TsonError> {
 
 // Multi-Document Reader
 
-/// Reads length-prefixed TSON documents from a byte source.
-///
-/// Each document is prefixed by a 4-byte little-endian length, followed by
-/// the TSON binary. This is the framing format used by `RollingArchive` and
-/// raw TCP/UDP transports.
-///
-/// # Example
-///
-/// ```rust,ignore
-/// use tson::stream::TsonDocReader;
-/// let file = std::fs::File::open("archive.tson")?;
-/// for doc_result in TsonDocReader::new(file) {
-///     let doc = doc_result?;
-///     println!("Defs: {}, Dict: {}", doc.definitions.len(), doc.dict.len());
-/// }
-/// ```
-#[allow(dead_code)]
-pub struct TsonDocReader<R: std::io::Read> {
-    source: R,
-    buf: Vec<u8>,
-}
+#[cfg(feature = "std")]
+pub mod multi_doc {
+    //! Multi-document reader (requires `std` feature for `io::Read`).
+    use crate::prelude::*;
+    use crate::error::TsonError;
+    use crate::structure::TsonDocument;
+    use crate::decode;
 
-#[allow(dead_code)]
-impl<R: std::io::Read> TsonDocReader<R> {
-    /// Create a new multi-document reader from any `Read` source.
-    pub fn new(source: R) -> Self {
-        TsonDocReader { source, buf: Vec::with_capacity(4096) }
+    /// Reads length-prefixed TSON documents from a byte source.
+    pub struct TsonDocReader<R: std::io::Read> {
+        source: R,
+        buf: Vec<u8>,
     }
 
-    /// Read the next length-prefixed TSON document.
-    ///
-    /// Returns `Ok(None)` at EOF (when 0 bytes are read for the length prefix).
-    pub fn read_next(&mut self) -> Result<Option<TsonDocument>, TsonError> {
-        let mut len_buf = [0u8; 4];
-        let n = self.source.read(&mut len_buf)
-            .map_err(|e| TsonError::IoError(e))?;
-        if n == 0 { return Ok(None); }
-        if n < 4 {
-            return Err(TsonError::ParseError(
-                "Truncated length prefix in TSON document stream".into(),
-            ));
+    impl<R: std::io::Read> TsonDocReader<R> {
+        pub fn new(source: R) -> Self {
+            TsonDocReader { source, buf: Vec::with_capacity(4096) }
         }
-        let len = u32::from_le_bytes(len_buf) as usize;
-        self.buf.resize(len, 0u8);
-        self.source.read_exact(&mut self.buf)
-            .map_err(|e| TsonError::IoError(e))?;
-        let doc = decode::decode_document(&self.buf)?;
-        Ok(Some(doc))
-    }
-}
 
-impl<R: std::io::Read> Iterator for TsonDocReader<R> {
-    type Item = Result<TsonDocument, TsonError>;
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.read_next() {
-            Ok(Some(doc)) => Some(Ok(doc)),
-            Ok(None) => None,
-            Err(e) => Some(Err(e)),
+        pub fn read_next(&mut self) -> Result<Option<TsonDocument>, TsonError> {
+            let mut len_buf = [0u8; 4];
+            let n = self.source.read(&mut len_buf)
+                .map_err(|e| TsonError::IoError(e))?;
+            if n == 0 { return Ok(None); }
+            if n < 4 {
+                return Err(TsonError::ParseError(
+                    "Truncated length prefix in TSON document stream".into(),
+                ));
+            }
+            let len = u32::from_le_bytes(len_buf) as usize;
+            self.buf.resize(len, 0u8);
+            self.source.read_exact(&mut self.buf)
+                .map_err(|e| TsonError::IoError(e))?;
+            let doc = decode::decode_document(&self.buf)?;
+            Ok(Some(doc))
+        }
+    }
+
+    impl<R: std::io::Read> Iterator for TsonDocReader<R> {
+        type Item = Result<TsonDocument, TsonError>;
+        fn next(&mut self) -> Option<Self::Item> {
+            match self.read_next() {
+                Ok(Some(doc)) => Some(Ok(doc)),
+                Ok(None) => None,
+                Err(e) => Some(Err(e)),
+            }
         }
     }
 }
+
+#[cfg(feature = "std")]
+pub use multi_doc::TsonDocReader;

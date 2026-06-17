@@ -32,6 +32,7 @@ pub use crate::stream::TsonStreamReader;
 /// let bytes = emit(&reading).unwrap();
 /// assert!(bytes.len() > 13, "should produce a complete TSON document (header + defs + data)");
 /// ```
+#[cfg(feature = "json")]
 #[allow(dead_code)]
 pub fn emit(data: &TsonData) -> Result<Vec<u8>, TsonError> {
     let chunk = TsonChunk { definition_index: 0, data: data.clone() };

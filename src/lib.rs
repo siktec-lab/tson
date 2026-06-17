@@ -30,9 +30,10 @@ extern crate alloc;
 // Module declarations (all at root level)
 
 pub mod error;
+pub mod prelude;
 pub mod tson;
 
-// Core modules - no_std compatible (only require alloc)
+// Core modules — no_std compatible (only require alloc)
 pub mod structure;
 pub mod encode;
 pub mod decode;
@@ -47,9 +48,11 @@ pub mod decompile;
 // Root-level re-exports from `tson` module
 
 pub use tson::{
-    TsonChunk, TsonData, TsonDefinition, TsonDocument, TsonHeader, TsonType,
-    emit, emit_value, emit_with_context, to_bytes, from_bytes, decode_definitions,
+    TsonChunk, TsonData, emit_value, to_bytes, from_bytes, decode_definitions,
+    TsonDefinition, TsonDocument, TsonHeader, TsonType,
 };
+#[cfg(feature = "json")]
+pub use tson::{emit, emit_with_context};
 pub use stream::TsonStreamReader;
 
 // Python bindings (optional, behind `python` feature)

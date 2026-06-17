@@ -13,15 +13,19 @@ crate-type = ["lib", "cdylib"]
 [[bin]]
 name = "tson-cli"
 path = "src/main.rs"
+required-features = ["std", "json"]
 [[bin]]
 name = "tson-bench"
 path = "src/bin/bench.rs"
+required-features = ["std", "json"]
 [[bin]]
 name = "gen-examples"
 path = "src/bin/gen_examples.rs"
+required-features = ["std", "json"]
 [[bin]]
 name = "comp-bench"
 path = "src/bin/comp_bench.rs"
+required-features = ["std", "json"]
 
 [features]
 default = ["std", "json", "dict"]
