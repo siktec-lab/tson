@@ -34,6 +34,10 @@ bench-perf:  ## Performance benchmark
 
 bench: bench-size bench-perf  ## All benchmarks
 
+bump-version:  ## Bump version (usage: make bump-version V=0.2.0)
+	@if [ -z "$(V)" ]; then echo "Usage: make bump-version V=0.2.0"; exit 1; fi
+	@bash scripts/bump-version.sh $(V)
+
 clean:  ## Cargo clean
 	cargo clean
 

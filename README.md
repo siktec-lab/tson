@@ -1,4 +1,6 @@
-# TSON - Terse JSON Binary Format
+# TSON — Terse JSON Binary Format
+
+[![CI](https://github.com/siktec-lab/tson/actions/workflows/ci.yml/badge.svg)](https://github.com/siktec-lab/tson/actions/workflows/ci.yml)
 
 A compact, schema-deduplicated binary format for JSON data, built for microcontrollers and constrained environments.
 
