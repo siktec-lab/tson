@@ -54,7 +54,12 @@ pub fn compile_json_str(json_text: &str) -> Result<TsonDocument, TsonError> {
 struct CompileBuilder {
     defs: Vec<TsonDefinition>,
     shape_index: HashMap<String, u16>,
-    array_index: HashMap<String, u16>,
+    /// Array shapes keyed by element type tag (a single byte) — no per-array
+    /// string key allocation.
+    array_index: HashMap<u8, u16>,
+    /// Reusable scratch buffer for building object shape keys, cleared and
+    /// refilled per object instead of allocating a fresh String each time.
+    shape_key: String,
     next_idx: u16,
     /// Strings that have appeared ≥2 times - the output dict.
     dict: Vec<String>,
@@ -66,14 +71,12 @@ struct CompileBuilder {
     seen_once: HashMap<String, ()>,
 }
 
-/// Build shape key WITHOUT allocating via `to_string()`.
-/// Uses a pre-computed character table for tag digits.
-fn fast_shape_key(name: &str, tag: u8) -> String {
-    let mut key = String::with_capacity(name.len() + 1);
+/// Append one `name:tag` field segment to `key` in place, with no per-field
+/// String allocation. Uses a pre-computed character table for tag digits.
+fn append_shape_field(key: &mut String, name: &str, tag: u8) {
     key.push_str(name);
     key.push(':');
     key.push(TAG_CHARS[tag as usize] as char);
-    key
 }
 
 impl CompileBuilder {
@@ -82,6 +85,7 @@ impl CompileBuilder {
         Self {
             next_idx: prims.len() as u16, defs: prims,
             shape_index: HashMap::new(), array_index: HashMap::new(),
+            shape_key: String::new(),
             dict: Vec::new(),
             #[cfg(feature = "dict")]
             dict_map: HashMap::new(),
@@ -137,12 +141,7 @@ impl CompileBuilder {
                     elements.push(self.compile_inline(item)?);
                 }
                 let elem_tag = array_elem_tag(items);
-                let arr_sign = format!("arr:{}", elem_tag);
-                let arr_def_idx = if let Some(&idx) = self.array_index.get(&arr_sign) { idx } else {
-                    let idx = self.alloc_def();
-                    self.defs.push(TsonDefinition { def_type: TsonType::Array, index: idx, name: None, fields: None, elem_type: Some(TsonType::from_u8(elem_tag)?) });
-                    self.array_index.insert(arr_sign, idx); idx
-                };
+                let arr_def_idx = self.intern_array_shape(elem_tag)?;
                 let elem_def_idx = resolve_elem_def(&elements);
                 Ok(vec![TsonChunk { definition_index: arr_def_idx, data: TsonData::Array(arr_def_idx, elem_def_idx, elements) }])
             }
@@ -154,22 +153,7 @@ impl CompileBuilder {
                 let mut field_vals = Vec::with_capacity(map.len());
                 for (_k, v) in &sorted { field_vals.push(self.compile_inline(v)?); }
 
-                // Build shape key from sorted fields
-                let mut shape_key = String::new();
-                for (i, (name, v)) in sorted.iter().enumerate() {
-                    if i > 0 { shape_key.push(','); }
-                    shape_key.push_str(&fast_shape_key(name, json_type_tag(v)));
-                }
-
-                let obj_def_idx = if let Some(&idx) = self.shape_index.get(&shape_key) { idx } else {
-                    let idx = self.alloc_def();
-                    let fields: Vec<(String, TsonType)> = sorted.iter()
-                        .map(|(n, v)| Ok::<_, TsonError>((alloc::string::ToString::to_string(*n), TsonType::from_u8(json_type_tag(v))?)))
-                        .collect::<Result<_, _>>()?;
-                    self.defs.push(TsonDefinition { def_type: TsonType::Object, index: idx, name: None, fields: Some(fields), elem_type: None });
-                    self.shape_index.insert(shape_key, idx); idx
-                };
-
+                let obj_def_idx = self.intern_object_shape(&sorted)?;
                 Ok(vec![TsonChunk { definition_index: obj_def_idx, data: TsonData::Object(obj_def_idx, field_vals) }])
             }
         }
@@ -186,12 +170,7 @@ impl CompileBuilder {
                 let mut elements = Vec::with_capacity(items.len());
                 for item in items { elements.push(self.compile_inline(item)?); }
                 let elem_tag = array_elem_tag(items);
-                let arr_sign = format!("arr:{}", elem_tag);
-                let arr_def_idx = if let Some(&idx) = self.array_index.get(&arr_sign) { idx } else {
-                    let idx = self.alloc_def();
-                    self.defs.push(TsonDefinition { def_type: TsonType::Array, index: idx, name: None, fields: None, elem_type: Some(TsonType::from_u8(elem_tag)?) });
-                    self.array_index.insert(arr_sign, idx); idx
-                };
+                let arr_def_idx = self.intern_array_shape(elem_tag)?;
                 let elem_def_idx = resolve_elem_def(&elements);
                 Ok(TsonData::Array(arr_def_idx, elem_def_idx, elements))
             }
@@ -201,25 +180,58 @@ impl CompileBuilder {
                 sorted.sort_by(|a, b| a.0.cmp(b.0));
                 let mut field_vals = Vec::with_capacity(map.len());
                 for (_k, v) in &sorted { field_vals.push(self.compile_inline(v)?); }
-                let mut shape_key = String::new();
-                for (i, (name, v)) in sorted.iter().enumerate() {
-                    if i > 0 { shape_key.push(','); }
-                    shape_key.push_str(&fast_shape_key(name, json_type_tag(v)));
-                }
-                let obj_def_idx = if let Some(&idx) = self.shape_index.get(&shape_key) { idx } else {
-                    let idx = self.alloc_def();
-                    let fields: Vec<(String, TsonType)> = sorted.iter()
-                        .map(|(n, v)| Ok::<_, TsonError>((alloc::string::ToString::to_string(*n), TsonType::from_u8(json_type_tag(v))?)))
-                        .collect::<Result<_, _>>()?;
-                    self.defs.push(TsonDefinition { def_type: TsonType::Object, index: idx, name: None, fields: Some(fields), elem_type: None });
-                    self.shape_index.insert(shape_key, idx); idx
-                };
+                let obj_def_idx = self.intern_object_shape(&sorted)?;
                 Ok(TsonData::Object(obj_def_idx, field_vals))
             }
         }
     }
 
     fn alloc_def(&mut self) -> u16 { let idx = self.next_idx; self.next_idx += 1; idx }
+
+    /// Intern an array shape by element tag, returning its definition index.
+    /// Keyed by the single-byte `elem_tag`, so no per-array key allocation.
+    fn intern_array_shape(&mut self, elem_tag: u8) -> Result<u16, TsonError> {
+        if let Some(&idx) = self.array_index.get(&elem_tag) { return Ok(idx); }
+        let idx = self.alloc_def();
+        self.defs.push(TsonDefinition { def_type: TsonType::Array, index: idx, name: None, fields: None, elem_type: Some(TsonType::from_u8(elem_tag)?) });
+        self.array_index.insert(elem_tag, idx);
+        Ok(idx)
+    }
+
+    /// Intern an object shape (sorted (name, value) pairs), returning its
+    /// definition index. Builds the shape key into the reused `self.shape_key`
+    /// scratch buffer and only allocates an owned key + field Vec on a miss.
+    fn intern_object_shape(&mut self, sorted: &[(&String, &JsonValue)]) -> Result<u16, TsonError> {
+        // Build key into the reusable scratch buffer (swapped out to satisfy
+        // the borrow checker, then restored).
+        let mut key = core::mem::take(&mut self.shape_key);
+        key.clear();
+        for (i, (name, v)) in sorted.iter().enumerate() {
+            if i > 0 { key.push(','); }
+            append_shape_field(&mut key, name, json_type_tag(v));
+        }
+
+        let result = if let Some(&idx) = self.shape_index.get(&key) {
+            Ok(idx)
+        } else {
+            let idx = self.alloc_def();
+            let fields: Result<Vec<(String, TsonType)>, TsonError> = sorted.iter()
+                .map(|(n, v)| Ok((alloc::string::ToString::to_string(*n), TsonType::from_u8(json_type_tag(v))?)))
+                .collect();
+            match fields {
+                Ok(fields) => {
+                    self.defs.push(TsonDefinition { def_type: TsonType::Object, index: idx, name: None, fields: Some(fields), elem_type: None });
+                    self.shape_index.insert(alloc::string::ToString::to_string(&key), idx);
+                    Ok(idx)
+                }
+                Err(e) => Err(e),
+            }
+        };
+
+        // Restore the scratch buffer (retains its capacity for reuse).
+        self.shape_key = key;
+        result
+    }
 
     fn finish(self, chunks: Vec<TsonChunk>) -> Result<TsonDocument, TsonError> {
         // dict already only contains strings that appeared ≥2 times.

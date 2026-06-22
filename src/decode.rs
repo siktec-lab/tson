@@ -1,4 +1,4 @@
-use alloc::{string::String, vec::Vec};
+use alloc::{format, string::String, vec::Vec};
 use crate::error::TsonError;
 use crate::structure::*;
 
@@ -11,6 +11,18 @@ const DATA_ENTRY_HEADER_BYTES: usize = 6;
 
 const STRREF_SENTINEL: u8 = 0xFF;
 const LONG_TAG: u8 = 0xFE;
+
+/// Decode a UTF-8 string from `slice`, validating exactly once.
+///
+/// `String::from_utf8(slice.to_vec())` first copies the bytes into a Vec and
+/// then validates; this validates the borrowed slice directly and allocates
+/// only the final owned `String` — one validation, one allocation.
+#[inline]
+fn str_from_utf8(slice: &[u8], ctx: &str) -> Result<String, TsonError> {
+    core::str::from_utf8(slice)
+        .map(String::from)
+        .map_err(|e| TsonError::ParseError(format!("Invalid UTF-8 {}: {}", ctx, e)))
+}
 
 /// Decode a hybrid string payload (inline or StrRef). Returns the decoded
 /// `TsonData` and number of bytes consumed.
@@ -33,8 +45,7 @@ fn decode_str_payload(bytes: &[u8]) -> Result<(TsonData, usize), TsonError> {
                 "Truncated short string: need {} bytes, got {}", 1 + len, bytes.len()
             )));
         }
-        let s = String::from_utf8(bytes[1..1 + len].to_vec())
-            .map_err(|e| TsonError::ParseError(format!("Invalid UTF-8 string: {}", e)))?;
+        let s = str_from_utf8(&bytes[1..1 + len], "string")?;
         Ok((TsonData::String(s), 1 + len))
     } else if first < 0xFE {
         // Medium: first byte has hi6, next byte is lo8
@@ -47,8 +58,7 @@ fn decode_str_payload(bytes: &[u8]) -> Result<(TsonData, usize), TsonError> {
                 "Truncated medium string: need {} bytes, got {}", 2 + len, bytes.len()
             )));
         }
-        let s = String::from_utf8(bytes[2..2 + len].to_vec())
-            .map_err(|e| TsonError::ParseError(format!("Invalid UTF-8 string: {}", e)))?;
+        let s = str_from_utf8(&bytes[2..2 + len], "string")?;
         Ok((TsonData::String(s), 2 + len))
     } else if first == LONG_TAG {
         // Long: next 3 bytes are u24 LE
@@ -63,8 +73,7 @@ fn decode_str_payload(bytes: &[u8]) -> Result<(TsonData, usize), TsonError> {
                 "Truncated long string: need {} bytes, got {}", 4 + len, bytes.len()
             )));
         }
-        let s = String::from_utf8(bytes[4..4 + len].to_vec())
-            .map_err(|e| TsonError::ParseError(format!("Invalid UTF-8 string: {}", e)))?;
+        let s = str_from_utf8(&bytes[4..4 + len], "string")?;
         Ok((TsonData::String(s), 4 + len))
     } else {
         // first == STRREF_SENTINEL (0xFF)
@@ -106,8 +115,7 @@ fn decode_dict_str(bytes: &[u8]) -> Result<(String, usize), TsonError> {
     if bytes.len() < head_len + len {
         return Err(TsonError::ParseError("Truncated dict string data".into()));
     }
-    let s = String::from_utf8(bytes[head_len..head_len + len].to_vec())
-        .map_err(|e| TsonError::ParseError(format!("Invalid UTF-8 in dict: {}", e)))?;
+    let s = str_from_utf8(&bytes[head_len..head_len + len], "in dict")?;
     Ok((s, head_len + len))
 }
 
@@ -159,8 +167,7 @@ fn decode_definitions_slice(bytes: &[u8]) -> Result<Vec<TsonDefinition>, TsonErr
                     if pos >= bytes.len() { return Err(TsonError::ParseError(format!("Truncated field {} name length", fi))); }
                     let name_len = bytes[pos] as usize; pos += 1;
                     if pos + name_len + 1 > bytes.len() { return Err(TsonError::ParseError(format!("Truncated field {} name data", fi))); }
-                    let name = String::from_utf8(bytes[pos..pos + name_len].to_vec())
-                        .map_err(|e| TsonError::ParseError(format!("Invalid UTF-8 in field name: {}", e)))?;
+                    let name = str_from_utf8(&bytes[pos..pos + name_len], "in field name")?;
                     pos += name_len;
                     let field_type = TsonType::from_u8(bytes[pos])?; pos += 1;
                     fields.push((name, field_type));

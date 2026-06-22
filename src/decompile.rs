@@ -83,6 +83,15 @@ fn data_to_json(data: &TsonData, _context_def_idx: u16, all_defs: &[TsonDefiniti
     }
 }
 
+/// O(1) definition lookup: definitions are stored in index order (the
+/// compiler allocates indices sequentially), so `index` is the slot.
+/// Falls back to a linear scan only if the fast slot's `.index` doesn't
+/// match, preserving correctness if the ordering invariant is ever violated.
 fn resolve_def<'a>(index: u16, all_defs: &'a [TsonDefinition]) -> Result<&'a TsonDefinition, TsonError> {
+    if let Some(def) = all_defs.get(index as usize) {
+        if def.index == index {
+            return Ok(def);
+        }
+    }
     all_defs.iter().find(|d| d.index == index).ok_or_else(|| TsonError::ParseError(format!("Unknown definition index: {}", index)))
 }
