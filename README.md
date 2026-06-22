@@ -346,7 +346,11 @@ make bench          # benchmarks
 The Makefile handles Python wheel build (`maturin develop`) and Node.js addon build (`npx napi build`) automatically. Full reference:
 
 ```bash
-make check          # cargo check
+make pre-push       # run every CI gate locally (fmt, clippy, features, test)
+make fmt            # format code (rustfmt)
+make clippy         # lint, warnings-as-errors (CI gate)
+make features       # no_std / std / all-features build checks (CI gate)
+make check          # cargo check --all-features
 make build          # cargo build --release
 make test           # run all tests
 make bench          # run all benchmarks

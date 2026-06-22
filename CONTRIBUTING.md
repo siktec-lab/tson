@@ -24,9 +24,11 @@ make test-node     # Node.js (requires `npm install @napi-rs/cli`)
 Verify every build configuration compiles (the core is `no_std`):
 
 ```bash
-cargo build --no-default-features    # no_std (alloc only)
-cargo build                          # std + json + dict (default)
-cargo build --all-features           # incl. python + nodejs bindings
+make features                        # no_std / std-only / all-features checks
+# equivalently:
+cargo check --no-default-features    # no_std (alloc only)
+cargo check --no-default-features --features std   # std, no json/dict
+cargo check --all-features           # incl. python + nodejs bindings
 ```
 
 ## Benchmarks
@@ -51,11 +53,12 @@ regressions — Criterion compares against the previous run automatically.
 
 1. Fork the repo and create your branch from `main`
 2. Add tests for any new functionality
-3. Run `cargo fmt` and ensure `cargo clippy -- -D warnings` is clean (CI gates on both)
-4. Ensure `make test` passes and all build configs above compile
-5. Run `cargo bench` to confirm no performance regression
-6. Update docs if you add or change public APIs
-7. Open a PR with a clear description
+3. Run **`make pre-push`** — it runs every gate CI enforces (`fmt --check`,
+   `clippy -D warnings`, the no_std/std/all-features checks, and the Rust
+   tests). A green result here means the Rust and feature-gate CI jobs pass.
+4. Run `cargo bench` to confirm no performance regression
+5. Update docs if you add or change public APIs
+6. Open a PR with a clear description
 
 ## Project Structure
 
