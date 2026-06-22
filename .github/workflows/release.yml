@@ -1,31 +1,51 @@
 name: Release
 
-# Publishes TSON to crates.io (Rust), PyPI (Python wheels), and npm
-# (Node addon + per-platform packages) when a version tag is pushed.
+# Publishes TSON to crates.io (Rust) and PyPI (Python wheels) via Trusted
+# Publishing (OIDC) — no long-lived tokens stored as secrets.
 #
-# Required repository secrets:
-#   CARGO_REGISTRY_TOKEN   crates.io API token
-#   PYPI_API_TOKEN         PyPI API token (or configure trusted publishing)
-#   NPM_TOKEN              npm automation token
+# Triggered by pushing a version tag (v*). npm is NOT published here yet (see
+# the gated `publish-npm` job and the note at the bottom).
+#
+# One-time setup before the FIRST release:
+#   • crates.io: Trusted Publishing requires the crate to exist first. Do one
+#     manual `cargo publish` locally, then add the GitHub trusted publisher at
+#     https://crates.io/crates/tson/settings (repo: siktec-lab/tson,
+#     workflow: release.yml). Subsequent tags publish via OIDC below.
+#   • PyPI: can be pre-configured. Add a "pending" trusted publisher at
+#     https://pypi.org/manage/account/publishing/ (PyPI project: tson-bin,
+#     owner: siktec-lab, repo: tson, workflow: release.yml). No manual publish
+#     needed — the first tagged release publishes via OIDC.
 
 on:
   push:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      publish_npm:
+        description: "Also publish npm packages (requires npm bootstrap done)"
+        type: boolean
+        default: false
 
 jobs:
-  # ── crates.io ────────────────────────────────────────────────────
+  # ── crates.io (OIDC) ─────────────────────────────────────────────
   publish-crate:
     name: Publish crate (crates.io)
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write # required for OIDC token exchange
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Authenticate to crates.io (OIDC)
+        uses: rust-lang/crates-io-auth-action@v1
+        id: auth
       - name: cargo publish
-        run: cargo publish --token "${{ secrets.CARGO_REGISTRY_TOKEN }}"
+        run: cargo publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
 
-  # ── PyPI: build a wheel per OS/arch, then publish ────────────────
+  # ── PyPI: build a wheel per OS/arch, then publish via OIDC ───────
   build-wheels:
     name: Build wheel (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
@@ -33,9 +53,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest,  target: x86_64-unknown-linux-gnu }
-          - { os: macos-latest,   target: x86_64-apple-darwin }
-          - { os: macos-latest,   target: aarch64-apple-darwin }
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu }
+          - { os: macos-latest, target: x86_64-apple-darwin }
+          - { os: macos-latest, target: aarch64-apple-darwin }
           - { os: windows-latest, target: x86_64-pc-windows-msvc }
     steps:
       - uses: actions/checkout@v4
@@ -57,35 +77,36 @@ jobs:
     name: Publish to PyPI
     needs: build-wheels
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write # required for OIDC trusted publishing
     steps:
       - uses: actions/download-artifact@v4
         with:
           pattern: wheels-*
           path: dist
           merge-multiple: true
-      - uses: actions/setup-python@v5
+      - name: Publish to PyPI (OIDC)
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          python-version: "3.12"
-      - name: Publish
-        run: |
-          pip install twine
-          twine upload --skip-existing dist/*
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+          skip-existing: true
 
-  # ── npm: build the addon per platform, then publish ─────────────
+  # ── npm (DEFERRED) ───────────────────────────────────────────────
+  # npm Trusted Publishing requires each package to exist before OIDC can be
+  # configured, and we publish 6 packages (main + 5 platform). Until that
+  # bootstrap is done, this job only runs on a manual dispatch with
+  # publish_npm=true AND an NPM_TOKEN secret present. See CONTRIBUTING.md.
   build-node:
     name: Build addon (${{ matrix.target }})
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_npm
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest,  target: x86_64-unknown-linux-gnu }
-          - { os: ubuntu-latest,  target: aarch64-unknown-linux-gnu }
-          - { os: macos-latest,   target: x86_64-apple-darwin }
-          - { os: macos-latest,   target: aarch64-apple-darwin }
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu }
+          - { os: ubuntu-latest, target: aarch64-unknown-linux-gnu }
+          - { os: macos-latest, target: x86_64-apple-darwin }
+          - { os: macos-latest, target: aarch64-apple-darwin }
           - { os: windows-latest, target: x86_64-pc-windows-msvc }
     steps:
       - uses: actions/checkout@v4
@@ -109,6 +130,7 @@ jobs:
   publish-npm:
     name: Publish to npm
     needs: build-node
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_npm
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -130,7 +152,7 @@ jobs:
           npx napi create-npm-dirs
       - name: Publish all packages
         working-directory: js
-        run: npx napi pre-publish -t npm --skip-optional-publish=false || true
+        run: npx napi pre-publish -t npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

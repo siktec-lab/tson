@@ -99,19 +99,27 @@ src/
 
 ## Releasing & Publishing
 
-TSON ships to three registries from one version tag. Releases are automated by
-[`.github/workflows/release.yml`](.github/workflows/release.yml), which builds
-per-platform artifacts and publishes on any `v*` tag push.
+Package names: **crates.io `tson`**, **PyPI `tson-bin`** (imports as `tson`),
+**npm `@siktec-lab/tson`** (`tson` was taken on PyPI and npm).
 
-### One-time setup
+Releases are automated by
+[`.github/workflows/release.yml`](.github/workflows/release.yml) on any `v*` tag.
+crates.io and PyPI publish via **Trusted Publishing (OIDC)** — no stored tokens.
+npm is deferred (see below).
 
-Add these repository secrets (Settings → Secrets and variables → Actions):
+### One-time setup (Trusted Publishing — no secrets)
 
-| Secret | Used for |
-|--------|----------|
-| `CARGO_REGISTRY_TOKEN` | `cargo publish` to crates.io |
-| `PYPI_API_TOKEN`       | wheel upload to PyPI |
-| `NPM_TOKEN`            | npm publish (main + per-platform packages) |
+- **PyPI** can be configured *before* the project exists. At
+  <https://pypi.org/manage/account/publishing/> add a **pending** GitHub
+  publisher → PyPI project `tson-bin`, owner `siktec-lab`, repo `tson`,
+  workflow `release.yml`. The first tagged release then publishes via OIDC.
+- **crates.io** requires the crate to exist first. Do **one manual publish**:
+  ```bash
+  cargo publish   # uses your local `cargo login` token, once
+  ```
+  Then at <https://crates.io/crates/tson/settings> add the GitHub trusted
+  publisher (repo `siktec-lab/tson`, workflow `release.yml`). Every later tag
+  publishes via OIDC.
 
 ### Cutting a release
 
@@ -122,12 +130,22 @@ git tag v0.2.0 && git push --follow-tags
 ```
 
 The tag triggers the Release workflow:
-- **crates.io** — `cargo publish` (the `exclude` list in `Cargo.toml` keeps the
-  crate to the library + CLI + README).
-- **PyPI** — `maturin` builds a wheel per OS/arch (matrix), then `twine upload`.
-- **npm** — the addon is built per platform (`napi build --target …`), collected
-  with `napi artifacts`, and published as the main `tson` package plus one
-  `tson-<platform>` package each, wired through `optionalDependencies`.
+- **crates.io** — OIDC auth via `rust-lang/crates-io-auth-action`, then
+  `cargo publish` (the `exclude` list in `Cargo.toml` keeps the crate to the
+  library + CLI + README).
+- **PyPI** — `maturin` builds a wheel per OS/arch (matrix), then
+  `pypa/gh-action-pypi-publish` uploads via OIDC.
+
+### npm (deferred)
+
+npm Trusted Publishing needs each package to **exist before** OIDC can be
+configured, and we ship 6 packages (`@siktec-lab/tson` + 5
+`@siktec-lab/tson-<platform>`). To enable npm:
+1. Bootstrap-publish all 6 once (locally or via a short-lived `NPM_TOKEN`):
+   build the addon per platform, `napi artifacts`, then `napi pre-publish`.
+2. Either keep an `NPM_TOKEN` repo secret and run the workflow with
+   `workflow_dispatch` + `publish_npm=true`, or configure OIDC trusted
+   publishers per package and switch the npm job to OIDC.
 
 ### Nuances worth knowing
 
