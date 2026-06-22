@@ -98,11 +98,16 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Install napi-rs CLI
-        run: npm install -g @napi-rs/cli
+      - name: Install JS deps (napi-rs CLI v3, pinned in js/package.json)
+        working-directory: js
+        run: npm install
 
       - name: Build addon
-        run: npx napi build --platform --release --output-dir js --features nodejs
+        # napi v3 reads its config from js/package.json; build only the cdylib
+        # via the nodejs feature and emit the .node next to the loader.
+        working-directory: js
+        run: npm run build
 
       - name: Run Node.js tests
-        run: node js/test.js
+        working-directory: js
+        run: node test.js

@@ -7,7 +7,11 @@ fn main() {
     writeln!(f, "{{").unwrap();
     writeln!(f, r#"  "device_id": "sensor-array-001","#).unwrap();
     writeln!(f, r#"  "firmware": "v2.4.1","#).unwrap();
-    writeln!(f, r#"  "location": {{"lat":37.7749,"lon":-122.4194,"alt":15.2}},"#).unwrap();
+    writeln!(
+        f,
+        r#"  "location": {{"lat":37.7749,"lon":-122.4194,"alt":15.2}},"#
+    )
+    .unwrap();
     writeln!(f, r#"  "calibration": {{"temp_offset":0.1,"humidity_offset":-1.0,"last_cal":"2026-05-01T08:00:00Z"}},"#).unwrap();
     writeln!(f, r#"  "readings": ["#).unwrap();
 
@@ -15,7 +19,13 @@ fn main() {
         let temp = 20.0 + 15.0 * ((i as f64 * 0.7).sin() + 1.0) / 2.0;
         let hum = 50.0 + 20.0 * ((i as f64 * 0.3).cos());
         let batt = 3.3 + 0.4 * ((i as f64 * 0.1 + std::f64::consts::PI).sin() + 1.0) / 2.0;
-        let status = if i > 480 { "critical" } else if temp > 33.0 { "warning" } else { "nominal" };
+        let status = if i > 480 {
+            "critical"
+        } else if temp > 33.0 {
+            "warning"
+        } else {
+            "nominal"
+        };
         let comma = if i < 499 { "," } else { "" };
         writeln!(f, r#"    {{"ts":"2026-06-15T00:00:{:02}Z","temp":{:.1},"humidity":{:.0},"pressure":{},"battery":{:.2},"status":"{}"}}{}"#,
             i % 60, (temp * 10.0).round() / 10.0, hum.round(),

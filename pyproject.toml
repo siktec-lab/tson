@@ -6,7 +6,10 @@ build-backend = "maturin"
 name = "tson"
 version = "0.1.0"
 description = "Terse JSON — compact binary JSON for microcontrollers"
+readme = "README.md"
+license = { text = "MIT" }
 requires-python = ">=3.8"
+authors = [{ name = "SIKTEC Lab", email = "siktec.lab@gmail.com" }]
 keywords = ["json", "binary", "serialization", "embedded", "iot"]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -14,7 +17,13 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Rust",
     "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Libraries",
 ]
+
+[project.urls]
+Homepage = "https://github.com/siktec-lab/tson"
+Repository = "https://github.com/siktec-lab/tson"
+Issues = "https://github.com/siktec-lab/tson/issues"
 
 [tool.maturin]
 bindings = "pyo3"

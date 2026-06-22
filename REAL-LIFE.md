@@ -63,7 +63,7 @@ fn proxy_handler(json_body: &str) -> Vec<u8> {
 - 40-70% bandwidth reduction on the wire
 - No client-side changes - the proxy is transparent
 - No pre-shared schema - TSON discovers structure from each message
-- One compile per message, ~12 µs - negligible overhead
+- One compile per message, ~8 µs - negligible overhead
 
 ### Server Side - Receive TSON, Extract Fields, Act
 
@@ -157,7 +157,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 | Aspect | JSON Server | TSON Server |
 |--------|-------------|-------------|
-| Parse every message | `serde_json::from_str` - 180 µs | `TsonStreamReader::new` - 80 µs |
+| Parse every message | `serde_json::from_str` - ~350 µs | `TsonStreamReader::new` - ~72 µs |
 | Memory for field names | Allocated per message | In definition block, shared |
 | Extract "status" field | `obj["status"].as_str()` - O(1) | `chunk.field("status", defs)` - O(fields) |
 | Extract nested sensor type | Full tree deserialization | `field("sensors").values()` - partial read |
@@ -483,4 +483,4 @@ fn main() {
 
 ## 8. Performance (Perspective)
 
-On a server receiving 500 sensor readings per second, the time to compile each reading to TSON is ~15–20 microseconds (release build, users‑t1 scale).  This is fast enough to run inline, on every event, with no batching required.  The resulting binary is about 30–40% the size of the original JSON, which reduces disk I/O and bandwidth proportionally.
+On a server receiving 500 sensor readings per second, the time to compile each reading to TSON is well under 10 microseconds (release build, users‑t1 scale); the subsequent binary encode adds under 1 µs, since values are written straight into one shared buffer with no per-node allocation.  This is fast enough to run inline, on every event, with no batching required.  The resulting binary is about 30–40% the size of the original JSON, which reduces disk I/O and bandwidth proportionally (the size is governed by the wire format, which these speedups did not change).

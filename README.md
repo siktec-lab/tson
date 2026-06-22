@@ -39,9 +39,22 @@ JSON (890 bytes)               TSON binary (~374 bytes)
 - **Schema deduplication**: identical object shapes share one definition. Field names stored once.
 - **String interning** (`dict` feature): repeated strings stored once in a dict block. `StrRef` points to them instead of repeating inline. Only strings that appear ≥2 times are included - no waste.
 - **Hybrid string encoding**: short strings (≤127 B) use 1-byte length, medium strings 2 bytes, long strings 4 bytes - saves space over flat u32.
-- **`no_std` capable**: disable the `std` feature for embedded targets.
+- **`no_std` capable**: disable the `std` feature for embedded targets - the core builds against `alloc` only (verified: `cargo build --no-default-features`).
 - **Optional JSON bridge**: `serde_json`-based compile/decompile behind the `json` feature.
 - **Self-describing wire format**: every compound value carries its definition index, enabling forward compatibility and partial decoding.
+
+## Install
+
+```bash
+# Rust (crates.io)
+cargo add tson
+
+# Python (PyPI)
+pip install tson
+
+# Node.js (npm) — ships a prebuilt addon per platform
+npm install tson
+```
 
 ## Quick Start
 
@@ -196,7 +209,7 @@ All core modules (`structure`, `encode`, `decode`, `stream`) operate on `&[u8]` 
 
 ## Benchmark
 
-The project includes two benchmark tools.
+The project includes two human-readable benchmark tools plus a Criterion harness.
 
 ### `tson-bench` - Compression Summary
 
@@ -231,23 +244,34 @@ cargo run --release --bin comp-bench -- examples/telemetry.json
 
 ```
 ╔══════════════════════╤══════════════╤══════════════════╗
-║  Operation           │    avg / iter│   % of per-op     ║
+║  Operation           │    avg / iter│   % of round-trip ║
 ╠══════════════════════╪══════════════╪══════════════════╣
-║  serde_json parse    │     3167 ns  │  13%  (baseline)   ║
-║  TSON compile        │    11494 ns  │  47%               ║
-║  TSON encode         │     2624 ns  │  11%               ║
-║  TSON decode         │     2388 ns  │  10%               ║
-║  TSON decompile      │     2933 ns  │  12%               ║
-║  TSON stream (full)  │     1969 ns  │   8%   (fastest!)  ║
+║  serde_json parse    │     2641 ns  │  15%  (baseline)   ║
+║  TSON compile        │     8098 ns  │  46%               ║
+║  TSON encode         │      453 ns  │   3%   (cheapest!) ║
+║  TSON decode         │     2178 ns  │  12%               ║
+║  TSON decompile      │     2035 ns  │  12%               ║
+║  TSON stream (full)  │     2088 ns  │  12%               ║
 ╟──────────────────────┼──────────────┼──────────────────╢
-║  Full round-trip     │    20179 ns  │  summed            ║
+║  Full round-trip     │    11987 ns  │  summed            ║
 ╚══════════════════════╧══════════════════════════════════╝
 ```
 
+### `cargo bench` - Criterion Micro-benchmarks
+
+For statistically rigorous numbers (warmup, outlier detection), `benches/core.rs`
+measures compile/encode/decode/decompile/round-trip over `examples/telemetry.json`
+and `examples/128KB.json`:
+
+```bash
+cargo bench
+```
+
 ### Observations
-- **Compile dominates** (~47% of per-op time) - schema discovery + string interning + definition building.
-- **Decode is competitive** with JSON parse (2.4µs vs 3.2µs) - cached definitions and O(1) index lookups.
-- **Streaming is the fastest operation** (1.9µs) - loads defs+dict once, then yields entries without allocation.
+- **Compile dominates** (~46% of per-op time) - schema discovery + string interning + definition building.
+- **Encode is the cheapest stage** (~0.45µs) - values are appended directly into one shared output buffer, with no per-node allocation or copy.
+- **Decode is competitive** with JSON parse - cached definitions and O(1) index lookups.
+- **Streaming** loads defs+dict once, then yields entries without re-parsing.
 - **Dict is empty for unique-only documents** - lazy-promotion ensures no waste. Only strings appearing ≥2 times are included.
 - **70%+ savings** on large repetitive telemetry (500 sensor readings with 6 repeated field names per reading).
 
@@ -332,10 +356,15 @@ make test           # all three
 make bench          # benchmarks
 ```
 
-The Makefile handles Python wheel build (`maturin develop`) and Node.js addon build (`npx napi build`) automatically. Full reference:
+The Makefile builds the Python wheel (`maturin`) and the Node.js addon
+(napi-rs v3, via `cd js && npm run build`) automatically. Full reference:
 
 ```bash
-make check          # cargo check
+make pre-push       # run every CI gate locally (fmt, clippy, features, test)
+make fmt            # format code (rustfmt)
+make clippy         # lint, warnings-as-errors (CI gate)
+make features       # no_std / std / all-features build checks (CI gate)
+make check          # cargo check --all-features
 make build          # cargo build --release
 make test           # run all tests
 make bench          # run all benchmarks

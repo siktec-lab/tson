@@ -1,32 +1,32 @@
-use alloc::vec::Vec;
 use crate::error::TsonError;
 use crate::structure::*;
+use alloc::{format, string::String, vec, vec::Vec};
 
-/// Hybrid string-length encoding:
-///
-/// | First byte range  | Overhead | Max length | Format                                  |
-/// |-------------------|----------|------------|-----------------------------------------|
-/// | `0x00..=0x7F`     | 1 B      | 127 B      | `[len: u8][UTF-8]`                     |
-/// | `0x80..=0xBF`     | 2 B      | 16 383 B  | `[0x80|hi6][lo8][UTF-8]`               |
-/// | `0xFE`            | 4 B      | 16 M B    | `[0xFE][u24 LE][UTF-8]`               |
-/// | `0xFF`            | 5 B      | (StrRef)   | `[0xFF][dict_idx: u32 LE]`            |
-///
-/// The remaining bytes `0xC0..=0xFD` are reserved for future extensions.
-///
-/// # Design rationale
-///
-/// - **Small strings dominate** - names, IDs, and status codes are usually
-///   under 128 bytes.  A 1-byte length head saves 3 bytes per short string
-///   compared to a flat u32.
-/// - **Self-describing** - the decoder only needs the first byte to decide
-///   how many more to read.  No cross-entry state, no mode switches.
-/// - **Streaming-safe** - every value carries its own encoding; no need to
-///   have decoded a previous entry to know the length width of the current
-///   one.
-/// - **Sentinel for StrRef** - `0xFF` is reserved as the dict-index marker.
-///   A real string of exactly 0xFF bytes cannot be stored inline - it must
-///   be interned into the dict (the compiler always does this for large
-///   strings anyway).
+// Hybrid string-length encoding:
+//
+// | First byte range  | Overhead | Max length | Format                                  |
+// |-------------------|----------|------------|-----------------------------------------|
+// | `0x00..=0x7F`     | 1 B      | 127 B      | `[len: u8][UTF-8]`                     |
+// | `0x80..=0xBF`     | 2 B      | 16 383 B  | `[0x80|hi6][lo8][UTF-8]`               |
+// | `0xFE`            | 4 B      | 16 M B    | `[0xFE][u24 LE][UTF-8]`               |
+// | `0xFF`            | 5 B      | (StrRef)   | `[0xFF][dict_idx: u32 LE]`            |
+//
+// The remaining bytes `0xC0..=0xFD` are reserved for future extensions.
+//
+// # Design rationale
+//
+// - **Small strings dominate** - names, IDs, and status codes are usually
+//   under 128 bytes.  A 1-byte length head saves 3 bytes per short string
+//   compared to a flat u32.
+// - **Self-describing** - the decoder only needs the first byte to decide
+//   how many more to read.  No cross-entry state, no mode switches.
+// - **Streaming-safe** - every value carries its own encoding; no need to
+//   have decoded a previous entry to know the length width of the current
+//   one.
+// - **Sentinel for StrRef** - `0xFF` is reserved as the dict-index marker.
+//   A real string of exactly 0xFF bytes cannot be stored inline - it must
+//   be interned into the dict (the compiler always does this for large
+//   strings anyway).
 
 // String encoding helpers
 
@@ -63,8 +63,7 @@ fn encode_str_ref(buf: &mut Vec<u8>, idx: u32) {
 // Document
 
 pub fn encode_document(doc: &TsonDocument) -> Result<Vec<u8>, TsonError> {
-    let mut buf = Vec::new();
-    buf.resize(TsonHeader::SIZE, 0u8);
+    let mut buf = vec![0; TsonHeader::SIZE];
 
     let def_off = TsonHeader::SIZE as u32;
     encode_def_block_into(&doc.definitions, &mut buf)?;
@@ -73,6 +72,10 @@ pub fn encode_document(doc: &TsonDocument) -> Result<Vec<u8>, TsonError> {
     encode_dict_block_into(&doc.dict, &mut buf)?;
 
     let data_off = buf.len() as u32;
+    // Reserve a rough estimate for the data block (header + defs + dict are
+    // already in `buf`; data is typically the largest block) to cut
+    // reallocations as the tree is written.
+    buf.reserve(doc.data.len() * 16);
     encode_data_block_into(&doc.data, &mut buf)?;
 
     let header = TsonHeader::new(doc.header.version, def_off, dict_off, data_off).to_bytes();
@@ -83,7 +86,11 @@ pub fn encode_document(doc: &TsonDocument) -> Result<Vec<u8>, TsonError> {
 fn encode_def_block_into(defs: &[TsonDefinition], buf: &mut Vec<u8>) -> Result<(), TsonError> {
     let count = defs.len();
     if count > u16::MAX as usize {
-        return Err(TsonError::ParseError(format!("Too many definitions ({}), max {}", count, u16::MAX)));
+        return Err(TsonError::ParseError(format!(
+            "Too many definitions ({}), max {}",
+            count,
+            u16::MAX
+        )));
     }
     buf.extend_from_slice(&(count as u16).to_le_bytes());
     for def in defs {
@@ -130,54 +137,63 @@ fn encode_data_block_into(chunks: &[TsonChunk], buf: &mut Vec<u8>) -> Result<(),
     let count = chunks.len();
     buf.extend_from_slice(&(count as u32).to_le_bytes());
     for chunk in chunks {
-        let payload = encode_value(&chunk.data)?;
         buf.extend_from_slice(&chunk.definition_index.to_le_bytes());
-        buf.extend_from_slice(&(payload.len() as u32).to_le_bytes());
-        buf.extend_from_slice(&payload);
+        // Reserve the 4-byte payload-length slot, encode the payload directly
+        // into `buf`, then back-patch the length once we know how many bytes
+        // the payload occupied. This avoids allocating a throwaway per-chunk
+        // payload Vec and copying it in.
+        let len_pos = buf.len();
+        buf.extend_from_slice(&0u32.to_le_bytes());
+        let payload_start = buf.len();
+        encode_value_into(&chunk.data, buf)?;
+        let payload_len = (buf.len() - payload_start) as u32;
+        buf[len_pos..len_pos + 4].copy_from_slice(&payload_len.to_le_bytes());
     }
     Ok(())
 }
 
+/// Encode a value into the end of `buf`, allocating a fresh Vec.
+///
+/// Thin wrapper kept for API/back-compat; prefer [`encode_value_into`] on a
+/// shared buffer to avoid per-node allocations.
 pub fn encode_value(value: &TsonData) -> Result<Vec<u8>, TsonError> {
+    let mut buf = Vec::new();
+    encode_value_into(value, &mut buf)?;
+    Ok(buf)
+}
+
+/// Append a value's binary encoding directly to `buf`.
+///
+/// Recurses into the shared output buffer instead of building a separate Vec
+/// per node, so a tree of N nodes does O(1) buffer growth rather than O(N)
+/// throwaway allocations + copies.
+pub fn encode_value_into(value: &TsonData, buf: &mut Vec<u8>) -> Result<(), TsonError> {
     match value {
-        TsonData::Null => Ok(Vec::new()),
-        TsonData::Bool(v) => Ok(vec![*v as u8]),
-        TsonData::Int(v) => Ok(v.to_le_bytes().to_vec()),
-        TsonData::UInt(v) => Ok(v.to_le_bytes().to_vec()),
-        TsonData::Float(v) => Ok(v.to_le_bytes().to_vec()),
+        TsonData::Null => {}
+        TsonData::Bool(v) => buf.push(*v as u8),
+        TsonData::Int(v) => buf.extend_from_slice(&v.to_le_bytes()),
+        TsonData::UInt(v) => buf.extend_from_slice(&v.to_le_bytes()),
+        TsonData::Float(v) => buf.extend_from_slice(&v.to_le_bytes()),
 
-        TsonData::String(s) => {
-            let mut buf = Vec::with_capacity(4 + s.len());
-            encode_str_inline(&mut buf, s)?;
-            Ok(buf)
-        }
+        TsonData::String(s) => encode_str_inline(buf, s)?,
 
-        TsonData::StrRef(idx) => {
-            let mut buf = Vec::with_capacity(5);
-            encode_str_ref(&mut buf, *idx);
-            Ok(buf)
-        }
+        TsonData::StrRef(idx) => encode_str_ref(buf, *idx),
 
         TsonData::Array(self_def, elem_def, items) => {
-            let mut buf = Vec::new();
             buf.extend_from_slice(&self_def.to_le_bytes());
             buf.extend_from_slice(&elem_def.to_le_bytes());
             buf.extend_from_slice(&(items.len() as u16).to_le_bytes());
             for item in items {
-                let encoded = encode_value(item)?;
-                buf.extend_from_slice(&encoded);
+                encode_value_into(item, buf)?;
             }
-            Ok(buf)
         }
 
         TsonData::Object(def_index, fields) => {
-            let mut buf = Vec::new();
             buf.extend_from_slice(&def_index.to_le_bytes());
             for field in fields {
-                let encoded = encode_value(field)?;
-                buf.extend_from_slice(&encoded);
+                encode_value_into(field, buf)?;
             }
-            Ok(buf)
         }
     }
+    Ok(())
 }

@@ -21,14 +21,20 @@ fn json_value_to_tson(val: &serde_json::Value) -> Result<TsonData> {
         serde_json::Value::Null => Ok(TsonData::Null),
         serde_json::Value::Bool(b) => Ok(TsonData::Bool(*b)),
         serde_json::Value::Number(n) => {
-            if let Some(i) = n.as_i64() { Ok(TsonData::Int(i as i32)) }
-            else if let Some(u) = n.as_u64() { Ok(TsonData::UInt(u as u32)) }
-            else { Ok(TsonData::Float(n.as_f64().unwrap_or(0.0) as f32)) }
+            if let Some(i) = n.as_i64() {
+                Ok(TsonData::Int(i as i32))
+            } else if let Some(u) = n.as_u64() {
+                Ok(TsonData::UInt(u as u32))
+            } else {
+                Ok(TsonData::Float(n.as_f64().unwrap_or(0.0) as f32))
+            }
         }
         serde_json::Value::String(s) => Ok(TsonData::String(s.clone())),
         serde_json::Value::Array(arr) => {
             let mut items = Vec::with_capacity(arr.len());
-            for v in arr { items.push(json_value_to_tson(v)?); }
+            for v in arr {
+                items.push(json_value_to_tson(v)?);
+            }
             Ok(TsonData::Array(0, 0, items))
         }
         serde_json::Value::Object(map) => {
@@ -46,10 +52,8 @@ fn json_value_to_tson(val: &serde_json::Value) -> Result<TsonData> {
 #[napi]
 #[cfg(feature = "json")]
 pub fn dumps(json_text: String) -> Result<Buffer> {
-    let doc = crate::compile::compile_json_str(&json_text)
-        .map_err(to_napi_err)?;
-    let bytes = crate::encode::encode_document(&doc)
-        .map_err(to_napi_err)?;
+    let doc = crate::compile::compile_json_str(&json_text).map_err(to_napi_err)?;
+    let bytes = crate::encode::encode_document(&doc).map_err(to_napi_err)?;
     Ok(Buffer::from(bytes))
 }
 
@@ -57,8 +61,7 @@ pub fn dumps(json_text: String) -> Result<Buffer> {
 #[napi]
 #[cfg(feature = "json")]
 pub fn loads(bytes: Buffer) -> Result<serde_json::Value> {
-    let doc = crate::decode::decode_document(&bytes)
-        .map_err(to_napi_err)?;
+    let doc = crate::decode::decode_document(&bytes).map_err(to_napi_err)?;
     crate::decompile::decompile_document(&doc).map_err(to_napi_err)
 }
 
@@ -66,10 +69,8 @@ pub fn loads(bytes: Buffer) -> Result<serde_json::Value> {
 #[napi]
 #[cfg(feature = "json")]
 pub fn dump(json_text: String, path: String) -> Result<()> {
-    let doc = crate::compile::compile_json_str(&json_text)
-        .map_err(to_napi_err)?;
-    let bytes = crate::encode::encode_document(&doc)
-        .map_err(to_napi_err)?;
+    let doc = crate::compile::compile_json_str(&json_text).map_err(to_napi_err)?;
+    let bytes = crate::encode::encode_document(&doc).map_err(to_napi_err)?;
     std::fs::write(&path, &bytes).map_err(io_to_napi_err)?;
     Ok(())
 }
@@ -79,8 +80,7 @@ pub fn dump(json_text: String, path: String) -> Result<()> {
 #[cfg(feature = "json")]
 pub fn load(path: String) -> Result<serde_json::Value> {
     let bytes = std::fs::read(&path).map_err(io_to_napi_err)?;
-    let doc = crate::decode::decode_document(&bytes)
-        .map_err(to_napi_err)?;
+    let doc = crate::decode::decode_document(&bytes).map_err(to_napi_err)?;
     crate::decompile::decompile_document(&doc).map_err(to_napi_err)
 }
 
@@ -89,10 +89,11 @@ pub fn load(path: String) -> Result<serde_json::Value> {
 #[cfg(feature = "json")]
 pub fn emit(val: serde_json::Value) -> Result<Buffer> {
     let data = json_value_to_tson(&val)?;
-    let chunks = vec![TsonChunk { definition_index: 0, data }];
-    let doc = crate::compile::compile_from_data(&chunks)
-        .map_err(to_napi_err)?;
-    let bytes = crate::encode::encode_document(&doc)
-        .map_err(to_napi_err)?;
+    let chunks = vec![TsonChunk {
+        definition_index: 0,
+        data,
+    }];
+    let doc = crate::compile::compile_from_data(&chunks).map_err(to_napi_err)?;
+    let bytes = crate::encode::encode_document(&doc).map_err(to_napi_err)?;
     Ok(Buffer::from(bytes))
 }

@@ -235,9 +235,12 @@ mod roundtrip_tests {
         let bytes = tson::to_bytes(&doc).unwrap();
         assert!(bytes.len() >= TsonHeader::SIZE, "must have header");
         assert_eq!(bytes[0], 1, "version must be 1");
-        let def_off =
-            u32::from_le_bytes(bytes[1..5].try_into().unwrap()) as usize;
-        assert_eq!(def_off, TsonHeader::SIZE, "definition block must start after header");
+        let def_off = u32::from_le_bytes(bytes[1..5].try_into().unwrap()) as usize;
+        assert_eq!(
+            def_off,
+            TsonHeader::SIZE,
+            "definition block must start after header"
+        );
     }
 
     #[test]
@@ -262,9 +265,13 @@ mod roundtrip_tests {
             ]
         }"#;
         let doc = tson::compile_json(json).unwrap();
-        assert_eq!(doc.dict.len(), 0,
+        assert_eq!(
+            doc.dict.len(),
+            0,
             "Expected empty dict (no repeated strings), got {} entries: {:?}",
-            doc.dict.len(), &doc.dict);
+            doc.dict.len(),
+            &doc.dict
+        );
     }
 
     #[test]
@@ -280,10 +287,22 @@ mod roundtrip_tests {
         }"#;
         let doc = tson::compile_json(json).unwrap();
         let dict_strs: Vec<&str> = doc.dict.iter().map(|s| s.as_str()).collect();
-        assert!(dict_strs.contains(&"Charlie"), "Charlie should be in dict (appears ≥2 times)");
-        assert!(dict_strs.contains(&"admin"),   "admin should be in dict (appears ≥2 times)");
-        assert!(!dict_strs.contains(&"Alice"),  "Alice should NOT be in dict (appears once)");
-        assert!(!dict_strs.contains(&"user"),   "user should NOT be in dict (appears once)");
+        assert!(
+            dict_strs.contains(&"Charlie"),
+            "Charlie should be in dict (appears ≥2 times)"
+        );
+        assert!(
+            dict_strs.contains(&"admin"),
+            "admin should be in dict (appears ≥2 times)"
+        );
+        assert!(
+            !dict_strs.contains(&"Alice"),
+            "Alice should NOT be in dict (appears once)"
+        );
+        assert!(
+            !dict_strs.contains(&"user"),
+            "user should NOT be in dict (appears once)"
+        );
     }
 
     #[test]
@@ -296,7 +315,10 @@ mod roundtrip_tests {
         let restored = tson::from_bytes(&bytes).unwrap();
         let value = tson::decompile_to_value(&restored).unwrap();
         let expected: serde_json::Value = serde_json::from_str(json).unwrap();
-        assert_eq!(value, expected, "Round-trip with dict should preserve all values");
+        assert_eq!(
+            value, expected,
+            "Round-trip with dict should preserve all values"
+        );
     }
 
     #[test]
@@ -306,7 +328,10 @@ mod roundtrip_tests {
         // strings and inline String for unique strings
         let json = r#"["Alice", "Bob", "Alice"]"#;
         let doc = tson::compile_json(json).unwrap();
-        assert!(!doc.dict.is_empty(), "Dict should have entries (Alice repeats)");
+        assert!(
+            !doc.dict.is_empty(),
+            "Dict should have entries (Alice repeats)"
+        );
         // Decode round-trip confirms correctness
         let bytes = tson::to_bytes(&doc).unwrap();
         let back = tson::from_bytes(&bytes).unwrap();
@@ -319,18 +344,24 @@ mod roundtrip_tests {
     #[test]
     fn emit_roundtrip_primitive_values() {
         // Build a TsonData tree directly and emit to binary
-        let data = TsonData::Object(0, vec![
-            TsonData::Float(22.5),
-            TsonData::Int(61),
-            TsonData::String("nominal".to_string()),
-        ]);
+        let data = TsonData::Object(
+            0,
+            vec![
+                TsonData::Float(22.5),
+                TsonData::Int(61),
+                TsonData::String("nominal".to_string()),
+            ],
+        );
         let bytes = tson::emit(&data).unwrap();
         assert!(!bytes.is_empty(), "Emitted bytes should not be empty");
 
         // Round-trip through decode -> decompile
         let restored = tson::from_bytes(&bytes).unwrap();
         let value = tson::decompile_to_value(&restored).unwrap();
-        assert!(value.is_object(), "Emitted data should round-trip to an object");
+        assert!(
+            value.is_object(),
+            "Emitted data should round-trip to an object"
+        );
         let obj = value.as_object().unwrap();
         assert_eq!(obj["f0"].as_f64().unwrap(), 22.5);
         assert_eq!(obj["f1"].as_i64().unwrap(), 61);
@@ -386,10 +417,10 @@ mod roundtrip_tests {
         let json = r#"{"b":true,"n":null,"f":3.5,"u":42,"s":"hello"}"#;
         let doc = tson::compile_json(json).unwrap();
 
-        assert!(matches!(doc.get("b"),  Some(TsonData::Bool(true))));
-        assert!(matches!(doc.get("n"),  Some(TsonData::Null)));
+        assert!(matches!(doc.get("b"), Some(TsonData::Bool(true))));
+        assert!(matches!(doc.get("n"), Some(TsonData::Null)));
         assert!(matches!(doc.get("f"),  Some(TsonData::Float(f)) if (*f - 3.5).abs() < 0.01));
-        assert!(matches!(doc.get("u"),  Some(TsonData::Int(42))));
+        assert!(matches!(doc.get("u"), Some(TsonData::Int(42))));
         assert!(matches!(doc.get("s"),  Some(TsonData::String(s)) if s == "hello"));
     }
 
@@ -443,15 +474,12 @@ mod roundtrip_tests {
 
     #[test]
     fn emit_then_field_access_preserves_value_tree() {
-        use tson::{TsonData, emit};
-        let inner = TsonData::Object(1, vec![
-            TsonData::String("x".to_string()),
-            TsonData::Int(99),
-        ]);
-        let outer = TsonData::Object(0, vec![
-            TsonData::Float(1.5),
-            inner,
-        ]);
+        use tson::{emit, TsonData};
+        let inner = TsonData::Object(
+            1,
+            vec![TsonData::String("x".to_string()), TsonData::Int(99)],
+        );
+        let outer = TsonData::Object(0, vec![TsonData::Float(1.5), inner]);
         let bytes = emit(&outer).unwrap();
         let doc = tson::from_bytes(&bytes).unwrap();
         let defs = &doc.definitions;
@@ -480,7 +508,10 @@ mod roundtrip_tests {
         assert!(matches!(doc.get_by_index(name_idx), Some(TsonData::String(s)) if s == "Alice"));
         assert!(matches!(doc.get_by_index(age_idx), Some(TsonData::Int(30))));
         assert!(matches!(doc.get_by_index(city_idx), Some(TsonData::String(s)) if s == "NYC"));
-        assert!(doc.get_by_index(999).is_none(), "out of bounds returns None");
+        assert!(
+            doc.get_by_index(999).is_none(),
+            "out of bounds returns None"
+        );
 
         // Missing field
         assert!(doc.index("missing").is_none());
@@ -505,14 +536,20 @@ mod roundtrip_tests {
         let dict = tpl_doc.dict.clone();
 
         // Find the response object's definition index
-        let obj_def = defs.iter().find(|d| d.def_type == tson::TsonType::Object).unwrap();
+        let obj_def = defs
+            .iter()
+            .find(|d| d.def_type == tson::TsonType::Object)
+            .unwrap();
         let def_idx = obj_def.index;
 
         // Build a response value using the template's defs+dict
-        let response = tson::TsonData::Object(def_idx, vec![
-            tson::TsonData::String("processed".to_string()),
-            tson::TsonData::Int(42),
-        ]);
+        let response = tson::TsonData::Object(
+            def_idx,
+            vec![
+                tson::TsonData::String("processed".to_string()),
+                tson::TsonData::Int(42),
+            ],
+        );
         let bytes = tson::emit_with_context(&response, &defs, &dict).unwrap();
         assert!(!bytes.is_empty(), "emit_with_context produced bytes");
 
@@ -529,27 +566,36 @@ mod roundtrip_tests {
         let tpl_doc = tson::compile_json(template).unwrap();
         let defs = tpl_doc.definitions.clone();
         let dict = tpl_doc.dict.clone();
-        let obj_def = defs.iter().find(|d| d.def_type == tson::TsonType::Object).unwrap();
+        let obj_def = defs
+            .iter()
+            .find(|d| d.def_type == tson::TsonType::Object)
+            .unwrap();
         let def_idx = obj_def.index;
 
         // Reuse dict: values must be in DEFINITION ORDER.
         // Template defines: code=Int, status=String (alphabetical order).
-        let response = tson::TsonData::Object(def_idx, vec![
-            tson::TsonData::Int(200),          // code first
-            tson::TsonData::String("ok".to_string()), // status second
-        ]);
+        let response = tson::TsonData::Object(
+            def_idx,
+            vec![
+                tson::TsonData::Int(200),                 // code first
+                tson::TsonData::String("ok".to_string()), // status second
+            ],
+        );
         let bytes = tson::emit_with_context(&response, &defs, &dict).unwrap();
         let restored = tson::from_bytes(&bytes).unwrap();
-        assert_eq!(restored.dict.len(), dict.len(),
-            "emit_with_context should preserve dict content");
+        assert_eq!(
+            restored.dict.len(),
+            dict.len(),
+            "emit_with_context should preserve dict content"
+        );
     }
 
     // TsonDocReader - multi-document stream
 
     #[test]
     fn tson_doc_reader_multi_document() {
-        use tson::stream::TsonDocReader;
         use std::io::Cursor;
+        use tson::stream::TsonDocReader;
 
         let json1 = r#"{"a":1}"#;
         let json2 = r#"{"b":2}"#;

@@ -1,0 +1,40 @@
+{
+  "name": "tson-linux-x64-gnu",
+  "version": "0.1.0",
+  "cpu": [
+    "x64"
+  ],
+  "main": "tson.linux-x64-gnu.node",
+  "files": [
+    "tson.linux-x64-gnu.node"
+  ],
+  "description": "Terse JSON — compact binary JSON for microcontrollers",
+  "keywords": [
+    "json",
+    "binary",
+    "serialization",
+    "embedded",
+    "iot",
+    "napi-rs"
+  ],
+  "author": "SIKTEC Lab <siktec.lab@gmail.com>",
+  "homepage": "https://github.com/siktec-lab/tson",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/siktec-lab/tson.git",
+    "directory": "js"
+  },
+  "bugs": {
+    "url": "https://github.com/siktec-lab/tson/issues"
+  },
+  "os": [
+    "linux"
+  ],
+  "libc": [
+    "glibc"
+  ]
+}

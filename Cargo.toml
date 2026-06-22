@@ -2,8 +2,31 @@
 name = "tson"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.80"
 description = "Terse JSON - a compact binary JSON format for microcontrollers and constrained environments"
+authors = ["SIKTEC Lab <siktec.lab@gmail.com>"]
+license = "MIT"
+repository = "https://github.com/siktec-lab/tson"
+homepage = "https://github.com/siktec-lab/tson"
+documentation = "https://docs.rs/tson"
+readme = "README.md"
+keywords = ["json", "binary", "serialization", "embedded", "no_std"]
+categories = ["encoding", "no-std", "embedded", "parser-implementations"]
 default-run = "tson-cli"
+# Keep the published crate small: ship the library + CLI sources and README,
+# not the language-binding test harnesses, examples, or generated artifacts.
+# (Cargo always includes the `readme` file regardless of `exclude`.)
+exclude = [
+    "js/",
+    "python/",
+    "examples/",
+    "scripts/",
+    ".github/",
+    "DOC.md",
+    "REAL-LIFE.md",
+    "TSON-FORMAT.md",
+    "CONTRIBUTING.md",
+]
 
 [lib]
 name = "tson"
@@ -33,18 +56,31 @@ std = []
 json = ["serde", "serde_json"]
 dict = []
 python = ["pyo3", "json"]
-nodejs = ["napi", "napi-derive", "json"]
+nodejs = ["napi", "napi-derive", "napi-build", "json"]
 
 [dependencies]
 thiserror = "2.0"
 serde = { version = "1.0", features = ["derive"], optional = true }
 serde_json = { version = "1.0", optional = true }
-pyo3 = { version = "0.23", features = ["extension-module"], optional = true }
-napi = { version = "2", features = ["napi8", "serde-json"], optional = true }
-napi-derive = { version = "2", optional = true }
+pyo3 = { version = "0.29", features = ["extension-module"], optional = true }
+napi = { version = "3", features = ["napi8", "serde-json"], optional = true }
+napi-derive = { version = "3", optional = true }
+
+[build-dependencies]
+# napi-rs v3 requires a build script (napi_build::setup) to wire up the
+# Node-API symbol resolution. Only used when the `nodejs` feature is built.
+napi-build = { version = "2", optional = true }
 
 [dev-dependencies]
 serde_json = "1.0"
+criterion = "0.8"
+
+[[bench]]
+name = "core"
+harness = false
+required-features = ["std", "json"]
 
 [profile.release]
+opt-level = 3
 lto = true
+codegen-units = 1

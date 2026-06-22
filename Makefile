@@ -2,6 +2,11 @@
 ##
 ## Usage:
 ##   make help           Show this help
+##   make pre-push       Run every CI gate locally (fmt, clippy, features, test)
+##   make fmt            Format the code (rustfmt)
+##   make fmt-check      Check formatting without modifying (CI gate)
+##   make clippy         Lint with clippy, warnings-as-errors (CI gate)
+##   make features       Check no_std / std / all-features build (CI gate)
 ##   make check          Cargo check (all features)
 ##   make build          Release build
 ##   make test           Run all tests (Rust + Python + Node)
@@ -17,8 +22,22 @@
 
 # Rust targets
 
-check:  ## Cargo check (all)
-	cargo check
+check:  ## Cargo check (all features)
+	cargo check --all-features
+
+fmt:  ## Format code (rustfmt)
+	cargo fmt
+
+fmt-check:  ## Check formatting (CI gate: cargo fmt --check)
+	cargo fmt --check
+
+clippy:  ## Lint, warnings-as-errors (CI gate: cargo clippy -- -D warnings)
+	cargo clippy -- -D warnings
+
+features:  ## Check no_std / std-only / all-features builds (CI gate)
+	@echo "==> no_std (core only)..."   && cargo check --no-default-features
+	@echo "==> std (no json/dict)..."   && cargo check --no-default-features --features std
+	@echo "==> all-features..."         && cargo check --all-features
 
 build:  ## Release build
 	cargo build --release
@@ -59,7 +78,8 @@ test-python: python-build  ## Build + run Python tests
 node-build:  ## Build Node.js addon
 	@echo "==> Building Node.js addon..."
 	@cargo check --features nodejs || { echo "FAIL: cargo check"; exit 1; }
-	@npx napi build --platform --release --package-json-path js/package.json --output-dir js --features nodejs 2>/dev/null && echo "   ok" || { echo "FAIL: napi build"; echo "   Install: npm install @napi-rs/cli"; exit 1; }
+	@cd js && npm install --no-audit --no-fund >/dev/null 2>&1 || true
+	@js/node_modules/.bin/napi build --platform --release -c js/package.json --features nodejs --cargo-flags="--lib" js 2>/dev/null && echo "   ok" || { echo "FAIL: napi build"; echo "   Install: cd js && npm install"; exit 1; }
 
 test-node: node-build  ## Build + run Node tests
 	@echo "==> Running Node.js tests..."
@@ -68,6 +88,13 @@ test-node: node-build  ## Build + run Node tests
 # Combined targets
 
 test: test-rust test-python test-node  ## Run all tests
+
+## Run every gate CI enforces, in CI order, before pushing.
+## Mirrors the "Rust (stable)" + "Feature gates" CI jobs. Run this and get a
+## green result and the PR's Rust/feature checks will pass too.
+pre-push: fmt-check clippy features test-rust  ## Run all CI gates locally
+	@echo ""
+	@echo "==> All pre-push checks passed. Safe to push."
 
 all: build python-build node-build  ## Build everything
 

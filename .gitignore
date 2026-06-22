@@ -5,5 +5,11 @@ __pycache__
 *.pyc
 *.pyo
 *.pyd
+# Built native addons (per-platform .node files are produced at release time)
 *.node
-*.ts
+node_modules/
+package-lock.json
+# Release build outputs
+/dist
+js/artifacts/
+target/wheels/

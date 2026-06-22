@@ -77,7 +77,7 @@ assert_eq!(value.to_string(), r#"{"age":30,"name":"Alice"}"#);
 
 **What's happening under the hood:**
 - `compile_json` walks the JSON tree, discovers object shapes, builds definitions, and interns repeated strings.
-- `to_bytes` encodes the document into the TSON binary format (13-byte header + defs + dict + data).
+- `to_bytes` encodes the document into the TSON binary format (13-byte header + defs + dict + data). Internally it appends every value directly into one shared output buffer (`encode_value_into`) rather than allocating a Vec per tree node.
 - `from_bytes` decodes the binary back into a `TsonDocument` with all definitions and values.
 - `decompile_to_value` reconstructs a `serde_json::Value` from the document.
 
@@ -111,6 +111,19 @@ let value = tson::decompile_to_value(&doc).unwrap();
 let payload = tson::emit_value(&TsonData::Int(42)).unwrap();
 // payload = [0x2A, 0x00, 0x00, 0x00]  (4 bytes, i32 LE)
 ```
+
+To encode many values into a single buffer without a fresh allocation per
+value, append directly with `encode::encode_value_into`:
+
+```rust
+let mut buf = Vec::new();
+tson::encode::encode_value_into(&TsonData::Int(42), &mut buf).unwrap();
+tson::encode::encode_value_into(&TsonData::Bool(true), &mut buf).unwrap();
+// buf now holds both payloads back-to-back
+```
+
+`emit_value` ultimately encodes through the same `encode_value_into` path on a
+fresh `Vec`.
 
 
 ## 3. Field Access - Extracting Values
@@ -301,6 +314,9 @@ cargo run --release --bin tson-bench
 
 # Detailed performance comparison
 cargo run --release --bin comp-bench
+
+# Statistically rigorous micro-benchmarks (Criterion)
+cargo bench
 ```
 
 
@@ -359,15 +375,25 @@ fn replay_archive(raw: &[u8]) {
 
 | Operation | users-t1.json (890 B) | telemetry.json (54.4 KB) |
 |-----------|----------------------|--------------------------|
-| JSON parse (baseline) | ~3.2 µs | ~180 µs |
-| TSON compile | ~11.5 µs | ~850 µs |
-| TSON encode | ~2.6 µs | ~120 µs |
-| TSON decode | ~2.4 µs | ~95 µs |
-| TSON decompile | ~2.9 µs | ~130 µs |
-| TSON stream (full) | ~2.0 µs | ~80 µs |
-| Full round-trip | ~20.2 µs | ~1.2 ms |
+| JSON parse (baseline) | ~2.6 µs | ~348 µs |
+| TSON compile | ~8.1 µs | ~428 µs |
+| TSON encode | ~0.45 µs | ~11 µs |
+| TSON decode | ~2.2 µs | ~74 µs |
+| TSON decompile | ~2.0 µs | ~189 µs |
+| TSON stream (full) | ~2.1 µs | ~72 µs |
+| Full round-trip | ~12.0 µs | ~0.69 ms |
 
-Release build, 2000 iterations. TSON decode is competitive with JSON parse - the definitions are cached in memory and O(1)-indexed.
+Release build (`opt-level=3`, `lto=true`, `codegen-units=1`), 2000 iterations
+via `comp-bench`. TSON decode is competitive with JSON parse - the definitions
+are cached in memory and O(1)-indexed. Encode writes directly into a shared
+buffer (no per-node allocation), so it is by far the cheapest stage.
+
+For statistically rigorous measurement (warmup, outlier detection), run the
+Criterion harness instead:
+
+```bash
+cargo bench           # benches/core.rs: compile/encode/decode/decompile/round-trip
+```
 
 
 ## 9. See Also

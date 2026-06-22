@@ -12,6 +12,25 @@ cargo test
 make help
 ```
 
+### Prerequisites
+
+- **Rust** (stable, via [rustup](https://rustup.rs)). On Windows use the
+  **MSVC** toolchain (`stable-x86_64-pc-windows-msvc`) — it is the only Windows
+  target napi-rs supports, and the bindings will not build under the GNU
+  toolchain.
+- **Windows only**: the MSVC toolchain needs the **Visual Studio Build Tools**
+  with the *Desktop development with C++* workload **and** the **Windows SDK**
+  (the SDK is a separate component — without it `link.exe` cannot link). Install
+  with:
+  ```powershell
+  winget install --id Microsoft.VisualStudio.2022.BuildTools --override `
+    "--quiet --add Microsoft.VisualStudio.Workload.VCTools `
+     --add Microsoft.VisualStudio.Component.Windows11SDK.22621 --includeRecommended"
+  ```
+- **Python bindings**: `pip install maturin pytest`.
+- **Node.js bindings**: Node 18+; the napi-rs CLI is pulled in via
+  `cd js && npm install`.
+
 ## Running Tests
 
 ```bash
@@ -21,19 +40,44 @@ make test-python   # Python (requires `pip install maturin`)
 make test-node     # Node.js (requires `npm install @napi-rs/cli`)
 ```
 
+Verify every build configuration compiles (the core is `no_std`):
+
+```bash
+make features                        # no_std / std-only / all-features checks
+# equivalently:
+cargo check --no-default-features    # no_std (alloc only)
+cargo check --no-default-features --features std   # std, no json/dict
+cargo check --all-features           # incl. python + nodejs bindings
+```
+
+## Benchmarks
+
+```bash
+cargo bench                          # Criterion harness (benches/core.rs)
+make bench                           # compression + comp-bench summary tables
+```
+
+Run `cargo bench` before and after performance-sensitive changes to catch
+regressions — Criterion compares against the previous run automatically.
+
 ## Code Style
 
-- Rust: standard `rustfmt` (run `cargo fmt`)
+- Rust: standard `rustfmt` — run `cargo fmt` before committing. CI enforces
+  this with `cargo fmt --check`, which fails on any unformatted code.
 - Python: standard `ruff` or `black` (run `ruff python/`)
-- No warnings: `cargo check` should produce zero warnings
+- No warnings: CI runs `cargo clippy -- -D warnings`, so any warning fails the
+  build. Keep `cargo build` / `cargo clippy` output clean.
 
 ## Pull Request Process
 
 1. Fork the repo and create your branch from `main`
 2. Add tests for any new functionality
-3. Ensure `make test` passes
-4. Update docs if you add or change public APIs
-5. Open a PR with a clear description
+3. Run **`make pre-push`** — it runs every gate CI enforces (`fmt --check`,
+   `clippy -D warnings`, the no_std/std/all-features checks, and the Rust
+   tests). A green result here means the Rust and feature-gate CI jobs pass.
+4. Run `cargo bench` to confirm no performance regression
+5. Update docs if you add or change public APIs
+6. Open a PR with a clear description
 
 ## Project Structure
 
@@ -52,3 +96,46 @@ src/
 ├── main.rs         CLI tool
 └── bin/            Benchmark & generation tools
 ```
+
+## Releasing & Publishing
+
+TSON ships to three registries from one version tag. Releases are automated by
+[`.github/workflows/release.yml`](.github/workflows/release.yml), which builds
+per-platform artifacts and publishes on any `v*` tag push.
+
+### One-time setup
+
+Add these repository secrets (Settings → Secrets and variables → Actions):
+
+| Secret | Used for |
+|--------|----------|
+| `CARGO_REGISTRY_TOKEN` | `cargo publish` to crates.io |
+| `PYPI_API_TOKEN`       | wheel upload to PyPI |
+| `NPM_TOKEN`            | npm publish (main + per-platform packages) |
+
+### Cutting a release
+
+```bash
+./scripts/bump-version.sh 0.2.0     # bumps Cargo.toml, pyproject.toml, js/package.json + npm/*
+git add -A && git commit -m "Release v0.2.0"
+git tag v0.2.0 && git push --follow-tags
+```
+
+The tag triggers the Release workflow:
+- **crates.io** — `cargo publish` (the `exclude` list in `Cargo.toml` keeps the
+  crate to the library + CLI + README).
+- **PyPI** — `maturin` builds a wheel per OS/arch (matrix), then `twine upload`.
+- **npm** — the addon is built per platform (`napi build --target …`), collected
+  with `napi artifacts`, and published as the main `tson` package plus one
+  `tson-<platform>` package each, wired through `optionalDependencies`.
+
+### Nuances worth knowing
+
+- **napi-rs is v3** and only supports the **MSVC** target on Windows — the GNU
+  toolchain triggers a `libnode.dll` requirement and is unsupported. The
+  bindings build cleanly under plain `cargo` on MSVC and Linux; the Node CI job
+  drives the build through the napi CLI (`npm run build` in `js/`).
+- **`cargo publish --dry-run`** is the fastest way to validate crate metadata.
+- A manual `make build-node` / `cd js && npm run build` locally on Windows may
+  need `--target x86_64-pc-windows-msvc` if the GNU target is also installed —
+  the napi CLI can otherwise misdetect the host as GNU.

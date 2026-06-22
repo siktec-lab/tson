@@ -1,17 +1,17 @@
-use alloc::{string::String, vec::Vec};
 use crate::error::TsonError;
+use alloc::{format, string::String, vec::Vec};
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TsonType {
-    Null    = 0x00,
-    Bool    = 0x01,
-    Int     = 0x02,
-    UInt    = 0x03,
-    Float   = 0x04,
-    String  = 0x05,
-    Array   = 0x10,
-    Object  = 0x11,
+    Null = 0x00,
+    Bool = 0x01,
+    Int = 0x02,
+    UInt = 0x03,
+    Float = 0x04,
+    String = 0x05,
+    Array = 0x10,
+    Object = 0x11,
 }
 
 impl TsonType {
@@ -25,7 +25,10 @@ impl TsonType {
             0x05 => Ok(TsonType::String),
             0x10 => Ok(TsonType::Array),
             0x11 => Ok(TsonType::Object),
-            _ => Err(TsonError::ParseError(format!("Unknown TSON type tag: 0x{:02X}", tag))),
+            _ => Err(TsonError::ParseError(format!(
+                "Unknown TSON type tag: 0x{:02X}",
+                tag
+            ))),
         }
     }
 }
@@ -43,18 +46,32 @@ impl TsonHeader {
     pub const SUPPORTED_VERSION: u8 = 1;
 
     pub fn new(version: u8, blk_definition: u32, blk_dict: u32, blk_data: u32) -> Self {
-        Self { version, blk_definition, blk_dict, blk_data }
+        Self {
+            version,
+            blk_definition,
+            blk_dict,
+            blk_data,
+        }
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, TsonError> {
         if bytes.len() < Self::SIZE {
-            return Err(TsonError::ParseError(format!("Header requires {} bytes, got {}", Self::SIZE, bytes.len())));
+            return Err(TsonError::ParseError(format!(
+                "Header requires {} bytes, got {}",
+                Self::SIZE,
+                bytes.len()
+            )));
         }
         let version = bytes[0];
         let blk_definition = u32::from_le_bytes(bytes[1..5].try_into().unwrap());
         let blk_dict = u32::from_le_bytes(bytes[5..9].try_into().unwrap());
         let blk_data = u32::from_le_bytes(bytes[9..13].try_into().unwrap());
-        Ok(Self { version, blk_definition, blk_dict, blk_data })
+        Ok(Self {
+            version,
+            blk_definition,
+            blk_dict,
+            blk_data,
+        })
     }
 
     pub fn to_bytes(&self) -> [u8; Self::SIZE] {
@@ -68,16 +85,28 @@ impl TsonHeader {
 
     pub fn validate(&self) -> Result<(), TsonError> {
         if self.version != Self::SUPPORTED_VERSION {
-            return Err(TsonError::ParseError(format!("Unsupported TSON version: {}", self.version)));
+            return Err(TsonError::ParseError(format!(
+                "Unsupported TSON version: {}",
+                self.version
+            )));
         }
         if self.blk_definition < Self::SIZE as u32 {
-            return Err(TsonError::ParseError(format!("Def block offset {} before header", self.blk_definition)));
+            return Err(TsonError::ParseError(format!(
+                "Def block offset {} before header",
+                self.blk_definition
+            )));
         }
         if self.blk_dict < self.blk_definition {
-            return Err(TsonError::ParseError(format!("Dict block offset {} before defs", self.blk_dict)));
+            return Err(TsonError::ParseError(format!(
+                "Dict block offset {} before defs",
+                self.blk_dict
+            )));
         }
         if self.blk_data < self.blk_dict {
-            return Err(TsonError::ParseError(format!("Data block offset {} before dict", self.blk_data)));
+            return Err(TsonError::ParseError(format!(
+                "Data block offset {} before dict",
+                self.blk_data
+            )));
         }
         Ok(())
     }
@@ -189,7 +218,9 @@ impl TsonDocument {
     /// Get a field value by name from the first data entry.
     /// Shorthand for `doc.first_entry()?.data.field(name, &doc.definitions)`.
     pub fn get(&self, field_name: &str) -> Option<&TsonData> {
-        self.first_entry()?.data.field(field_name, &self.definitions)
+        self.first_entry()?
+            .data
+            .field(field_name, &self.definitions)
     }
 
     /// Iterate over all data entries (chunks).
