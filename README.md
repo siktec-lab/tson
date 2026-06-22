@@ -43,6 +43,19 @@ JSON (890 bytes)               TSON binary (~374 bytes)
 - **Optional JSON bridge**: `serde_json`-based compile/decompile behind the `json` feature.
 - **Self-describing wire format**: every compound value carries its definition index, enabling forward compatibility and partial decoding.
 
+## Install
+
+```bash
+# Rust (crates.io)
+cargo add tson
+
+# Python (PyPI)
+pip install tson
+
+# Node.js (npm) — ships a prebuilt addon per platform
+npm install tson
+```
+
 ## Quick Start
 
 ```rust
@@ -343,7 +356,8 @@ make test           # all three
 make bench          # benchmarks
 ```
 
-The Makefile handles Python wheel build (`maturin develop`) and Node.js addon build (`npx napi build`) automatically. Full reference:
+The Makefile builds the Python wheel (`maturin`) and the Node.js addon
+(napi-rs v3, via `cd js && npm run build`) automatically. Full reference:
 
 ```bash
 make pre-push       # run every CI gate locally (fmt, clippy, features, test)
