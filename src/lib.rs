@@ -34,10 +34,10 @@ pub mod prelude;
 pub mod tson;
 
 // Core modules — no_std compatible (only require alloc)
-pub mod structure;
-pub mod encode;
 pub mod decode;
+pub mod encode;
 pub mod stream;
+pub mod structure;
 
 // JSON interop - requires serde_json (gated behind `json` feature)
 #[cfg(feature = "json")]
@@ -47,13 +47,13 @@ pub mod decompile;
 
 // Root-level re-exports from `tson` module
 
+pub use stream::TsonStreamReader;
 pub use tson::{
-    TsonChunk, TsonData, emit_value, to_bytes, from_bytes, decode_definitions,
-    TsonDefinition, TsonDocument, TsonHeader, TsonType,
+    decode_definitions, emit_value, from_bytes, to_bytes, TsonChunk, TsonData, TsonDefinition,
+    TsonDocument, TsonHeader, TsonType,
 };
 #[cfg(feature = "json")]
 pub use tson::{emit, emit_with_context};
-pub use stream::TsonStreamReader;
 
 // Python bindings (optional, behind `python` feature)
 
@@ -67,6 +67,5 @@ pub mod nodejs;
 
 #[cfg(feature = "json")]
 pub use tson::{
-    compile_json, compile_json_file, compile_value,
-    decompile_to_value, decompile_tson_file,
+    compile_json, compile_json_file, compile_value, decompile_to_value, decompile_tson_file,
 };

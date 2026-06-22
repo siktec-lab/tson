@@ -46,11 +46,18 @@ fn main() {
     }
     entries.sort();
 
-    if entries.is_empty() { eprintln!("No .json files in {}/", EXAMPLES_DIR); return; }
+    if entries.is_empty() {
+        eprintln!("No .json files in {}/", EXAMPLES_DIR);
+        return;
+    }
 
     println!("\n╔══════════════════════╤══════════╤══════════╤══════════╤══════════╤══════════╤═════════╗");
-    println!("║ File                 │ JSON (B) │ TSON (B) │   Ratio  │    Defs  │    Dict  │ Entries ║");
-    println!("╠══════════════════════╪══════════╪══════════╪══════════╪══════════╪══════════╪═════════╣");
+    println!(
+        "║ File                 │ JSON (B) │ TSON (B) │   Ratio  │    Defs  │    Dict  │ Entries ║"
+    );
+    println!(
+        "╠══════════════════════╪══════════╪══════════╪══════════╪══════════╪══════════╪═════════╣"
+    );
 
     let mut total_json = 0u64;
     let mut total_tson = 0u64;
@@ -58,44 +65,81 @@ fn main() {
     for path_str in &entries {
         let json_text = match fs::read_to_string(path_str) {
             Ok(t) => t,
-            Err(e) => { eprintln!("  skip {} (read: {})", path_str, e); continue; }
+            Err(e) => {
+                eprintln!("  skip {} (read: {})", path_str, e);
+                continue;
+            }
         };
         let json_size = json_text.len() as u64;
 
         let doc = match tson::compile_json(&json_text) {
             Ok(d) => d,
-            Err(e) => { eprintln!("  skip {} (compile: {})", path_str, e); continue; }
+            Err(e) => {
+                eprintln!("  skip {} (compile: {})", path_str, e);
+                continue;
+            }
         };
 
         let tson_bytes = match tson::to_bytes(&doc) {
             Ok(b) => b,
-            Err(e) => { eprintln!("  skip {} (encode: {})", path_str, e); continue; }
+            Err(e) => {
+                eprintln!("  skip {} (encode: {})", path_str, e);
+                continue;
+            }
         };
         let tson_size = tson_bytes.len() as u64;
 
-        let ratio = if json_size > 0 { (tson_size as f64 / json_size as f64) * 100.0 } else { 0.0 };
+        let ratio = if json_size > 0 {
+            (tson_size as f64 / json_size as f64) * 100.0
+        } else {
+            0.0
+        };
 
         // Count entries recursively through the TsonData tree
         let entry_count: usize = doc.data.iter().map(|c| count_entries(&c.data)).sum();
 
-        let fname = std::path::Path::new(path_str).file_name().unwrap().to_string_lossy();
+        let fname = std::path::Path::new(path_str)
+            .file_name()
+            .unwrap()
+            .to_string_lossy();
         println!(
             "║ {:<20} │ {:>8} │ {:>8} │ {:>7.1}% │ {:>8} │ {:>8} │ {:>7} ║",
-            fname, fmt_size(json_size), fmt_size(tson_size), ratio,
-            doc.definitions.len(), doc.dict.len(), entry_count
+            fname,
+            fmt_size(json_size),
+            fmt_size(tson_size),
+            ratio,
+            doc.definitions.len(),
+            doc.dict.len(),
+            entry_count
         );
 
         total_json += json_size;
         total_tson += tson_size;
     }
 
-    let overall_ratio = if total_json > 0 { (total_tson as f64 / total_json as f64) * 100.0 } else { 0.0 };
-    println!("╟──────────────────────┼──────────┼──────────┼──────────┼──────────┼──────────┼─────────╢");
-    println!("║ TOTAL                │ {:>8} │ {:>8} │ {:>7.1}% │          │          │         ║",
-        fmt_size(total_json), fmt_size(total_tson), overall_ratio);
-    println!("╚══════════════════════╧══════════╧══════════╧══════════╧══════════╧══════════╧═════════╝");
+    let overall_ratio = if total_json > 0 {
+        (total_tson as f64 / total_json as f64) * 100.0
+    } else {
+        0.0
+    };
+    println!(
+        "╟──────────────────────┼──────────┼──────────┼──────────┼──────────┼──────────┼─────────╢"
+    );
+    println!(
+        "║ TOTAL                │ {:>8} │ {:>8} │ {:>7.1}% │          │          │         ║",
+        fmt_size(total_json),
+        fmt_size(total_tson),
+        overall_ratio
+    );
+    println!(
+        "╚══════════════════════╧══════════╧══════════╧══════════╧══════════╧══════════╧═════════╝"
+    );
 
-    println!("\n  Compression: {:.1}% of original size ({:.1}% savings).", overall_ratio, 100.0 - overall_ratio);
+    println!(
+        "\n  Compression: {:.1}% of original size ({:.1}% savings).",
+        overall_ratio,
+        100.0 - overall_ratio
+    );
 
     println!("\n  -- Observations --");
     println!("  * Field names stored once in the definition block - never repeated.");
@@ -112,8 +156,14 @@ fn main() {
 
 fn run_perf_bench(file_paths: &[String]) {
     for path_str in file_paths {
-        let json_text = match fs::read_to_string(path_str) { Ok(t) => t, Err(_) => continue };
-        let fname = std::path::Path::new(path_str).file_name().unwrap().to_string_lossy();
+        let json_text = match fs::read_to_string(path_str) {
+            Ok(t) => t,
+            Err(_) => continue,
+        };
+        let fname = std::path::Path::new(path_str)
+            .file_name()
+            .unwrap()
+            .to_string_lossy();
         let mut durations: Vec<u64> = Vec::with_capacity(PERF_ITERATIONS as usize);
         for _ in 0..PERF_ITERATIONS {
             let start = Instant::now();
@@ -124,18 +174,33 @@ fn run_perf_bench(file_paths: &[String]) {
         let p50 = durations[(durations.len() * 50 / 100).min(durations.len() - 1)];
         let p99 = durations[(durations.len() * 99 / 100).min(durations.len() - 1)];
         let avg = durations.iter().sum::<u64>() / durations.len() as u64;
-        println!("  {:<20} avg={:>7}   p50={:>7}   p99={:>7}   ({} iters)", fname, fmt_ns(avg), fmt_ns(p50), fmt_ns(p99), PERF_ITERATIONS);
+        println!(
+            "  {:<20} avg={:>7}   p50={:>7}   p99={:>7}   ({} iters)",
+            fname,
+            fmt_ns(avg),
+            fmt_ns(p50),
+            fmt_ns(p99),
+            PERF_ITERATIONS
+        );
     }
     println!("\n  Note: run in release mode for realistic numbers:");
     println!("    cargo run --release --bin tson-bench -- --perf");
 }
 
 fn fmt_size(bytes: u64) -> String {
-    if bytes >= 1024 { format!("{:.1}K", bytes as f64 / 1024.0) } else { format!("{} B", bytes) }
+    if bytes >= 1024 {
+        format!("{:.1}K", bytes as f64 / 1024.0)
+    } else {
+        format!("{} B", bytes)
+    }
 }
 
 fn fmt_ns(ns: u64) -> String {
-    if ns >= 1_000_000 { format!("{:.1}ms", ns as f64 / 1_000_000.0) }
-    else if ns >= 1_000 { format!("{:.1}µs", ns as f64 / 1_000.0) }
-    else { format!("{}ns", ns) }
+    if ns >= 1_000_000 {
+        format!("{:.1}ms", ns as f64 / 1_000_000.0)
+    } else if ns >= 1_000 {
+        format!("{:.1}µs", ns as f64 / 1_000.0)
+    } else {
+        format!("{}ns", ns)
+    }
 }

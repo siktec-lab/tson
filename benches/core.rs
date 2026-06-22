@@ -14,8 +14,7 @@ const FILES: &[&str] = &["examples/telemetry.json", "examples/128KB.json"];
 
 fn bench_pipeline(c: &mut Criterion) {
     for &path in FILES {
-        let json = fs::read_to_string(path)
-            .unwrap_or_else(|e| panic!("read {path}: {e}"));
+        let json = fs::read_to_string(path).unwrap_or_else(|e| panic!("read {path}: {e}"));
         let name = std::path::Path::new(path)
             .file_name()
             .unwrap()

@@ -57,7 +57,10 @@ fn load(path: &str) -> PyResult<PyObject> {
 #[cfg(feature = "json")]
 fn emit_py(obj: &Bound<'_, PyAny>) -> PyResult<Vec<u8>> {
     let data = py_to_tson_data(obj)?;
-    let chunks = vec![TsonChunk { definition_index: 0, data }];
+    let chunks = vec![TsonChunk {
+        definition_index: 0,
+        data,
+    }];
     let doc = crate::compile::compile_from_data(&chunks).map_err(to_py_err)?;
     crate::encode::encode_document(&doc).map_err(to_py_err)
 }
@@ -72,13 +75,18 @@ fn json_value_to_py(val: &serde_json::Value, py: Python<'_>) -> PyResult<PyObjec
         serde_json::Value::Null => Ok(py.None()),
         serde_json::Value::Bool(b) => Ok(b.to_object(py)),
         serde_json::Value::Number(n) => {
-            if let Some(i) = n.as_i64() { Ok(i.to_object(py)) }
-            else { Ok(n.as_f64().unwrap_or(0.0).to_object(py)) }
+            if let Some(i) = n.as_i64() {
+                Ok(i.to_object(py))
+            } else {
+                Ok(n.as_f64().unwrap_or(0.0).to_object(py))
+            }
         }
         serde_json::Value::String(s) => Ok(s.to_object(py)),
         serde_json::Value::Array(arr) => {
             let list = pyo3::types::PyList::empty(py);
-            for v in arr { list.append(json_value_to_py(v, py)?)?; }
+            for v in arr {
+                list.append(json_value_to_py(v, py)?)?;
+            }
             Ok(list.into())
         }
         serde_json::Value::Object(map) => {
@@ -104,16 +112,27 @@ fn py_to_tson_data(obj: &Bound<'_, PyAny>) -> PyResult<TsonData> {
     }
     if let Ok(l) = obj.downcast::<pyo3::types::PyList>() {
         let mut items = Vec::new();
-        for item in l.iter() { items.push(py_to_tson_data(&item)?); }
+        for item in l.iter() {
+            items.push(py_to_tson_data(&item)?);
+        }
         return Ok(TsonData::Array(0, 0, items));
     }
-    if let Ok(s) = obj.extract::<String>() { return Ok(TsonData::String(s)); }
-    if let Ok(i) = obj.extract::<i64>() { return Ok(TsonData::Int(i as i32)); }
-    if let Ok(f) = obj.extract::<f64>() { return Ok(TsonData::Float(f as f32)); }
-    if let Ok(b) = obj.extract::<bool>() { return Ok(TsonData::Bool(b)); }
-    Err(pyo3::exceptions::PyTypeError::new_err(
-        format!("Unsupported Python type: {:?}", obj.get_type().name()),
-    ))
+    if let Ok(s) = obj.extract::<String>() {
+        return Ok(TsonData::String(s));
+    }
+    if let Ok(i) = obj.extract::<i64>() {
+        return Ok(TsonData::Int(i as i32));
+    }
+    if let Ok(f) = obj.extract::<f64>() {
+        return Ok(TsonData::Float(f as f32));
+    }
+    if let Ok(b) = obj.extract::<bool>() {
+        return Ok(TsonData::Bool(b));
+    }
+    Err(pyo3::exceptions::PyTypeError::new_err(format!(
+        "Unsupported Python type: {:?}",
+        obj.get_type().name()
+    )))
 }
 
 // ─── Module initialization ─────────────────────────────────────────────────

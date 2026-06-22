@@ -1,6 +1,6 @@
-use alloc::{format, string::String, vec::Vec};
 use crate::error::TsonError;
 use crate::structure::*;
+use alloc::{format, string::String, vec::Vec};
 
 /// Hybrid string-length encoding:
 ///
@@ -87,7 +87,11 @@ pub fn encode_document(doc: &TsonDocument) -> Result<Vec<u8>, TsonError> {
 fn encode_def_block_into(defs: &[TsonDefinition], buf: &mut Vec<u8>) -> Result<(), TsonError> {
     let count = defs.len();
     if count > u16::MAX as usize {
-        return Err(TsonError::ParseError(format!("Too many definitions ({}), max {}", count, u16::MAX)));
+        return Err(TsonError::ParseError(format!(
+            "Too many definitions ({}), max {}",
+            count,
+            u16::MAX
+        )));
     }
     buf.extend_from_slice(&(count as u16).to_le_bytes());
     for def in defs {

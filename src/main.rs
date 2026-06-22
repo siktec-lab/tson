@@ -1,17 +1,17 @@
 extern crate alloc;
 
 mod error;
-mod tson;  // tson.rs re-exports all modules (structure, encode, decode, stream)
+mod tson; // tson.rs re-exports all modules (structure, encode, decode, stream)
 
 // Binary target module tree - mirrors lib.rs so `crate::encode` etc. resolve.
-mod encode;
-mod decode;
-mod stream;
-mod structure;
 #[cfg(feature = "json")]
 mod compile;
+mod decode;
 #[cfg(feature = "json")]
 mod decompile;
+mod encode;
+mod stream;
+mod structure;
 
 use std::io::Read;
 
@@ -25,26 +25,41 @@ fn format_tson_data(data: &tson::TsonData, indent: usize) -> String {
         TsonData::UInt(u) => format!("{}", u),
         TsonData::Float(f) => format!("{:.2}", f),
         TsonData::String(s) => {
-            if s.len() > 40 { format!("\"{}…\"({}B)", &s[..40], s.len()) }
-            else { format!("\"{}\"", s) }
+            if s.len() > 40 {
+                format!("\"{}…\"({}B)", &s[..40], s.len())
+            } else {
+                format!("\"{}\"", s)
+            }
         }
         TsonData::StrRef(idx) => format!("StrRef({})", idx),
         TsonData::Array(_, _, items) => {
             let pad = "  ".repeat(indent + 1);
             let mut out = format!("Array[{}]", items.len());
             for item in items.iter().take(5) {
-                out.push_str(&format!("\n{}  {}", pad, format_tson_data(item, indent + 1)));
+                out.push_str(&format!(
+                    "\n{}  {}",
+                    pad,
+                    format_tson_data(item, indent + 1)
+                ));
             }
-            if items.len() > 5 { out.push_str(&format!("\n{}  … +{} more", pad, items.len() - 5)); }
+            if items.len() > 5 {
+                out.push_str(&format!("\n{}  … +{} more", pad, items.len() - 5));
+            }
             out
         }
         TsonData::Object(_, fields) => {
             let pad = "  ".repeat(indent + 1);
             let mut out = format!("Object({} fields)", fields.len());
             for field in fields.iter().take(8) {
-                out.push_str(&format!("\n{}  {}", pad, format_tson_data(field, indent + 1)));
+                out.push_str(&format!(
+                    "\n{}  {}",
+                    pad,
+                    format_tson_data(field, indent + 1)
+                ));
             }
-            if fields.len() > 8 { out.push_str(&format!("\n{}  … +{} more", pad, fields.len() - 8)); }
+            if fields.len() > 8 {
+                out.push_str(&format!("\n{}  … +{} more", pad, fields.len() - 8));
+            }
             out
         }
     }
@@ -138,7 +153,11 @@ fn main() {
                 let dict = reader.dict();
                 println!("Dict entries: {}", dict.len());
                 for (i, s) in dict.iter().enumerate() {
-                    let truncated = if s.len() > 60 { format!("{}…({}B)", &s[..60], s.len()) } else { s.clone() };
+                    let truncated = if s.len() > 60 {
+                        format!("{}…({}B)", &s[..60], s.len())
+                    } else {
+                        s.clone()
+                    };
                     println!("  [{}] {}", i, truncated);
                 }
 
@@ -148,7 +167,12 @@ fn main() {
                 for result in reader {
                     match result {
                         Ok(chunk) => {
-                            println!("  [{}] def=#{}: {}", entry_idx, chunk.definition_index, format_tson_data(&chunk.data, 4));
+                            println!(
+                                "  [{}] def=#{}: {}",
+                                entry_idx,
+                                chunk.definition_index,
+                                format_tson_data(&chunk.data, 4)
+                            );
                             entry_idx += 1;
                         }
                         Err(e) => {
@@ -218,15 +242,13 @@ fn main() {
         #[cfg(feature = "json")]
         {
             match tson::decompile_tson_file(file) {
-                Ok(value) => {
-                    match serde_json::to_string_pretty(&value) {
-                        Ok(json_str) => println!("{json_str}"),
-                        Err(e) => {
-                            eprintln!("JSON serialization error: {e}");
-                            std::process::exit(1);
-                        }
+                Ok(value) => match serde_json::to_string_pretty(&value) {
+                    Ok(json_str) => println!("{json_str}"),
+                    Err(e) => {
+                        eprintln!("JSON serialization error: {e}");
+                        std::process::exit(1);
                     }
-                }
+                },
                 Err(e) => {
                     eprintln!("Decompile error: {e}");
                     std::process::exit(1);
@@ -242,8 +264,11 @@ fn main() {
             }
             match tson::from_bytes(&buf) {
                 Ok(doc) => {
-                    println!("TSON decoded: {} entries, {} definitions",
-                        doc.data.len(), doc.definitions.len());
+                    println!(
+                        "TSON decoded: {} entries, {} definitions",
+                        doc.data.len(),
+                        doc.definitions.len()
+                    );
                 }
                 Err(e) => {
                     eprintln!("Decompile error: {e}");

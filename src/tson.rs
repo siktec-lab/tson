@@ -1,11 +1,11 @@
-use alloc::{string::String, vec, vec::Vec};
-use crate::error::TsonError;
-use crate::encode;
 use crate::decode;
+use crate::encode;
+use crate::error::TsonError;
+use alloc::{string::String, vec, vec::Vec};
 
 #[allow(unused_imports)]
 pub use crate::structure::{
-    TsonType, TsonHeader, TsonData, TsonDefinition, TsonChunk, TsonDocument,
+    TsonChunk, TsonData, TsonDefinition, TsonDocument, TsonHeader, TsonType,
 };
 
 pub use crate::stream::TsonStreamReader;
@@ -36,7 +36,10 @@ pub use crate::stream::TsonStreamReader;
 #[cfg(feature = "json")]
 #[allow(dead_code)]
 pub fn emit(data: &TsonData) -> Result<Vec<u8>, TsonError> {
-    let chunk = TsonChunk { definition_index: 0, data: data.clone() };
+    let chunk = TsonChunk {
+        definition_index: 0,
+        data: data.clone(),
+    };
     let doc = crate::compile::compile_from_data(&[chunk])?;
     encode::encode_document(&doc)
 }
@@ -100,14 +103,14 @@ pub fn emit_with_context(
 /// Extract the definition index from a TsonData value.
 fn def_index_for_value(data: &TsonData) -> u16 {
     match data {
-        TsonData::Null           => 0,
-        TsonData::Bool(_)        => 1,
-        TsonData::Int(_)         => 2,
-        TsonData::UInt(_)        => 3,
-        TsonData::Float(_)       => 4,
+        TsonData::Null => 0,
+        TsonData::Bool(_) => 1,
+        TsonData::Int(_) => 2,
+        TsonData::UInt(_) => 3,
+        TsonData::Float(_) => 4,
         TsonData::String(_) | TsonData::StrRef(_) => 5,
         TsonData::Array(def, _, _) => *def,
-        TsonData::Object(def, _)   => *def,
+        TsonData::Object(def, _) => *def,
     }
 }
 
@@ -153,7 +156,8 @@ pub fn compile_json_file(file: std::fs::File) -> Result<TsonDocument, TsonError>
     use std::io::Read;
     let mut reader = std::io::BufReader::new(file);
     let mut text = String::new();
-    reader.read_to_string(&mut text)
+    reader
+        .read_to_string(&mut text)
         .map_err(|e| TsonError::IoError(e))?;
     crate::compile::compile_json_str(&text)
 }
@@ -163,7 +167,8 @@ pub fn decompile_tson_file(file: std::fs::File) -> Result<serde_json::Value, Tso
     use std::io::Read;
     let mut reader = std::io::BufReader::new(file);
     let mut buf = Vec::new();
-    reader.read_to_end(&mut buf)
+    reader
+        .read_to_end(&mut buf)
         .map_err(|e| TsonError::IoError(e))?;
     let doc = decode::decode_document(&buf)?;
     crate::decompile::decompile_document(&doc)
