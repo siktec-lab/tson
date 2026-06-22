@@ -1,7 +1,11 @@
 //! Python bindings for TSON (via PyO3 + maturin).
 
 use pyo3::prelude::*;
-use pyo3::{Bound, PyObject, PyResult};
+use pyo3::types::PyAny;
+use pyo3::{Bound, Py, PyResult};
+
+/// Owned, GIL-independent handle to any Python object (PyO3's old `PyObject`).
+type PyObject = Py<PyAny>;
 
 use crate::error::TsonError;
 use crate::structure::*;
@@ -25,10 +29,9 @@ fn dumps(json_text: &str) -> PyResult<Vec<u8>> {
 /// Decompile TSON binary bytes to a Python object.
 #[pyfunction]
 #[cfg(feature = "json")]
-fn loads(bytes: &[u8]) -> PyResult<PyObject> {
+fn loads(py: Python<'_>, bytes: &[u8]) -> PyResult<PyObject> {
     let doc = crate::decode::decode_document(bytes).map_err(to_py_err)?;
     let val = crate::decompile::decompile_document(&doc).map_err(to_py_err)?;
-    let py = unsafe { Python::assume_gil_acquired() };
     json_value_to_py(&val, py)
 }
 
@@ -44,11 +47,10 @@ fn dump(json_text: &str, path: &str) -> PyResult<()> {
 /// Read a TSON file and decompile to a Python object.
 #[pyfunction]
 #[cfg(feature = "json")]
-fn load(path: &str) -> PyResult<PyObject> {
+fn load(py: Python<'_>, path: &str) -> PyResult<PyObject> {
     let bytes = std::fs::read(path).map_err(io_to_py_err)?;
     let doc = crate::decode::decode_document(&bytes).map_err(to_py_err)?;
     let val = crate::decompile::decompile_document(&doc).map_err(to_py_err)?;
-    let py = unsafe { Python::assume_gil_acquired() };
     json_value_to_py(&val, py)
 }
 
@@ -67,41 +69,44 @@ fn emit_py(obj: &Bound<'_, PyAny>) -> PyResult<Vec<u8>> {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-/// Convert a `serde_json::Value` to a Python object by manual construction.
-/// Note: uses deprecated `to_object`; PyO3 1.0 will need `IntoPyObject`.
-#[allow(deprecated)]
+/// Convert a `serde_json::Value` to a Python object via PyO3's `IntoPyObject`.
 fn json_value_to_py(val: &serde_json::Value, py: Python<'_>) -> PyResult<PyObject> {
+    use pyo3::IntoPyObject;
     match val {
         serde_json::Value::Null => Ok(py.None()),
-        serde_json::Value::Bool(b) => Ok(b.to_object(py)),
+        serde_json::Value::Bool(b) => Ok(b.into_pyobject(py)?.to_owned().into_any().unbind()),
         serde_json::Value::Number(n) => {
             if let Some(i) = n.as_i64() {
-                Ok(i.to_object(py))
+                Ok(i.into_pyobject(py)?.into_any().unbind())
             } else {
-                Ok(n.as_f64().unwrap_or(0.0).to_object(py))
+                Ok(n.as_f64()
+                    .unwrap_or(0.0)
+                    .into_pyobject(py)?
+                    .into_any()
+                    .unbind())
             }
         }
-        serde_json::Value::String(s) => Ok(s.to_object(py)),
+        serde_json::Value::String(s) => Ok(s.into_pyobject(py)?.into_any().unbind()),
         serde_json::Value::Array(arr) => {
             let list = pyo3::types::PyList::empty(py);
             for v in arr {
                 list.append(json_value_to_py(v, py)?)?;
             }
-            Ok(list.into())
+            Ok(list.into_any().unbind())
         }
         serde_json::Value::Object(map) => {
             let d = pyo3::types::PyDict::new(py);
             for (k, v) in map {
                 d.set_item(k.as_str(), json_value_to_py(v, py)?)?;
             }
-            Ok(d.into())
+            Ok(d.into_any().unbind())
         }
     }
 }
 
 /// Convert a Python object (dict/list/scalar) to TsonData.
 fn py_to_tson_data(obj: &Bound<'_, PyAny>) -> PyResult<TsonData> {
-    if let Ok(d) = obj.downcast::<pyo3::types::PyDict>() {
+    if let Ok(d) = obj.cast::<pyo3::types::PyDict>() {
         let mut fields = Vec::new();
         for (k, v) in d.iter() {
             let key: String = k.extract()?;
@@ -110,7 +115,7 @@ fn py_to_tson_data(obj: &Bound<'_, PyAny>) -> PyResult<TsonData> {
         }
         return Ok(TsonData::Object(0, fields));
     }
-    if let Ok(l) = obj.downcast::<pyo3::types::PyList>() {
+    if let Ok(l) = obj.cast::<pyo3::types::PyList>() {
         let mut items = Vec::new();
         for item in l.iter() {
             items.push(py_to_tson_data(&item)?);
