@@ -8,7 +8,7 @@ build-backend = "maturin"
 name = "tson-bin"
 version = "0.1.0"
 description = "Terse JSON — compact binary JSON for microcontrollers"
-readme = "README.md"
+readme = "python/README.md"
 license = { text = "MIT" }
 requires-python = ">=3.8"
 authors = [{ name = "SIKTEC Lab", email = "siktec.lab@gmail.com" }]

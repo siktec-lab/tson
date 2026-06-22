@@ -1,7 +1,7 @@
 # TSON - User Guide
 
 A practical how-to for compiling, emitting, querying, and streaming TSON data.
-See [README.md](README.md) for the project overview and [TSON-FORMAT.md](TSON-FORMAT.md) for the binary specification.
+See [README.md](../README.md) for the project overview and [TSON-FORMAT.md](TSON-FORMAT.md) for the binary specification.
 
 ---
 
@@ -398,7 +398,8 @@ cargo bench           # benches/core.rs: compile/encode/decode/decompile/round-t
 
 ## 9. See Also
 
-- [README.md](README.md) - Project overview, feature comparison, security
+- [README.md](../README.md) - Project overview, feature comparison, security
 - [TSON-FORMAT.md](TSON-FORMAT.md) - Binary wire specification
 - [REAL-LIFE.md](REAL-LIFE.md) - Full walkthrough of a sensor pipeline
-- [Guidelines-future.md](Guidelines-future.md) - Python/Node bindings, transport-layer ergonomics
+- [python.md](python.md) - Python (`tson-bin`) usage guide
+- [js.md](js.md) - Node.js (`@siktec-lab/tson`) usage guide

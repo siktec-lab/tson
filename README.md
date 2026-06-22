@@ -1,383 +1,169 @@
 # TSON — Terse JSON Binary Format
 
 [![CI](https://github.com/siktec-lab/tson/actions/workflows/ci.yml/badge.svg)](https://github.com/siktec-lab/tson/actions/workflows/ci.yml)
+[![crates.io](https://img.shields.io/crates/v/tson.svg?logo=rust)](https://crates.io/crates/tson)
+[![docs.rs](https://img.shields.io/docsrs/tson?logo=docs.rs)](https://docs.rs/tson)
+[![PyPI](https://img.shields.io/pypi/v/tson-bin.svg?logo=pypi&logoColor=white)](https://pypi.org/project/tson-bin/)
+[![npm](https://img.shields.io/npm/v/@siktec-lab/tson.svg?logo=npm)](https://www.npmjs.com/package/@siktec-lab/tson)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-A compact, schema-deduplicated binary format for JSON data, built for microcontrollers and constrained environments.
+A compact, schema-deduplicated **binary format for JSON**, built for
+microcontrollers and constrained environments — with first-class **Rust**,
+**Python**, and **Node.js** bindings.
 
-**Core idea**: in repetitive JSON (API payloads, telemetry, config), field names appear thousands of times. TSON stores them **once** in a definition block. Repeated strings are stored once in a dict block. The data stream is pure typed values, no key repetition, no duplicate strings.
-
-```
-JSON (890 bytes)               TSON binary (~374 bytes)
-[{                              ┌── Header (13 B)
-  "id": 1,                      │   version=1, def_off=13,
-  "name": "Alice",              │   dict_off=110, data_off=122
-  "age": 30,                    ├── Definition block (97 B)
-  "address": {                  │   #0 Null  #1 Bool  #2 Int  #3 UInt
-    "street": "123…",           │   #4 Float  #5 String
-    "city": "Anytown",          │   #6 Array<String>
-    "state": "CA",              │   #7 Object fields:
-    "zip": "12345"              │      street:String city:String
-  },                            │      state:String zip:String
-  "hobbies": ["reading",        │   #8 Object fields:
-    "hiking", "cooking"]        │      id:Int name:String age:Int
-  },                            │      address:#7 hobbies:#6
-  …                              │   #9 Array<Object>
-]                               ├── Dict block (12 B, only
-                                │   repeated strings)
-                                ├── Data block (252 B)
-                                │   Entry #9: 3 elements
-                                │     [0]: #8 -> 1, "Alice", 30…
-                                │     [1]: #8 -> 2, "Bob",   25…
-                                │     [2]: #8 -> 3, "Charlie",35…
-                                └── (end)
-```
-
-## Features
-
-- **Zero-dependency core**: encode/decode/stream on `&[u8]` slices, only needs `alloc`.
-- **Streaming reader**: loads the tiny definition + dict blocks into memory, then yields data entries one-at-a-time - `O(1)` memory per entry.
-- **Schema deduplication**: identical object shapes share one definition. Field names stored once.
-- **String interning** (`dict` feature): repeated strings stored once in a dict block. `StrRef` points to them instead of repeating inline. Only strings that appear ≥2 times are included - no waste.
-- **Hybrid string encoding**: short strings (≤127 B) use 1-byte length, medium strings 2 bytes, long strings 4 bytes - saves space over flat u32.
-- **`no_std` capable**: disable the `std` feature for embedded targets - the core builds against `alloc` only (verified: `cargo build --no-default-features`).
-- **Optional JSON bridge**: `serde_json`-based compile/decompile behind the `json` feature.
-- **Self-describing wire format**: every compound value carries its definition index, enabling forward compatibility and partial decoding.
+> **Core idea:** in repetitive JSON (API payloads, telemetry, config) field
+> names repeat thousands of times. TSON stores each field name **once** in a
+> definition block and each repeated string **once** in a dict block. The data
+> stream is then pure typed values — no key repetition, no duplicate strings —
+> giving **60–70% size reduction** on real-world data.
 
 ## Install
 
-```bash
-# Rust (crates.io)
-cargo add tson
+| Language | Package | Install |
+|----------|---------|---------|
+| **Rust** | [`tson`](https://crates.io/crates/tson) | `cargo add tson` |
+| **Python** | [`tson-bin`](https://pypi.org/project/tson-bin/) (imports as `tson`) | `pip install tson-bin` |
+| **Node.js** | [`@siktec-lab/tson`](https://www.npmjs.com/package/@siktec-lab/tson) | `npm install @siktec-lab/tson` |
 
-# Python (PyPI) — distribution is `tson-bin`; you still `import tson`
-pip install tson-bin
+## Documentation
 
-# Node.js (npm) — scoped package, ships a prebuilt addon per platform
-npm install @siktec-lab/tson
-```
+| Doc | What's inside |
+|-----|---------------|
+| 📘 [Rust user guide](docs/DOC.md) | compile, emit, query, stream — the full Rust API with examples |
+| 🐍 [Python usage](docs/python.md) | `dumps`/`loads`/`dump`/`load`/`emit`, files, round-trips |
+| 🟢 [Node.js usage](docs/js.md) | same API for JS/TS, Buffer handling, types |
+| 📐 [Binary format spec](docs/TSON-FORMAT.md) | byte-level wire protocol + BNF grammar |
+| 🛠️ [Real-life walkthrough](docs/REAL-LIFE.md) | an end-to-end IoT sensor pipeline |
+| 🤝 [Contributing & releasing](CONTRIBUTING.md) | dev setup, CI gates, publishing |
 
-## Quick Start
+## Quick Start (Rust)
 
 ```rust
-// Round-trip a JSON string through TSON binary
+// JSON text -> TSON binary -> back to JSON
 let json = r#"{"name":"Alice","age":30}"#;
 
-// JSON -> TSON document -> binary
-let doc = tson::compile_json(json).unwrap();
-let bytes = tson::to_bytes(&doc).unwrap();
-
-// Binary -> TSON document -> JSON
-let restored = tson::from_bytes(&bytes).unwrap();
-let value = tson::decompile_to_value(&restored).unwrap();
+let doc      = tson::compile_json(json).unwrap();   // discover schema + intern strings
+let bytes    = tson::to_bytes(&doc).unwrap();        // encode to binary
+let restored = tson::from_bytes(&bytes).unwrap();    // decode
+let value    = tson::decompile_to_value(&restored).unwrap();
 
 assert_eq!(value.to_string(), r#"{"age":30,"name":"Alice"}"#);
 ```
 
-## Emit Mode (Bypass JSON)
+Python and Node mirror the familiar `dumps`/`loads` shape:
 
-Need TSON binary directly from structured data without parsing JSON? `tson::emit()` takes a `TsonData` tree and produces a complete TSON document.
-
-```rust
-use tson::{TsonData, emit};
-
-// Build a sensor reading value tree directly
-let reading = TsonData::Object(0, vec![
-    TsonData::Float(22.5),                   // temperature
-    TsonData::Int(61),                       // humidity
-    TsonData::String("nominal".to_string()), // status
-]);
-
-// Emit as TSON binary - no JSON parse step
-let bytes = emit(&reading).unwrap();
-
-// Decode back
-let doc = tson::from_bytes(&bytes).unwrap();
-let value = tson::decompile_to_value(&doc).unwrap();
-// value = {"f0": 22.5, "f1": 61, "f2": "nominal"}
+```python
+import tson
+blob = tson.dumps('{"name":"Alice","age":30}')   # -> bytes
+obj  = tson.loads(blob)                            # -> dict
 ```
 
-Field names are synthetic (`"f0"`, `"f1"`, …) since `TsonData` values don't carry names. Definitions and the string dict are discovered automatically from the value tree.
-
-## Server Response Path - `emit_with_context()`
-
-Reuse an incoming document's definitions and dict to emit a response - no schema re-discovery, no dict rebuild.
-
-```rust
-use tson::{TsonData, emit_with_context};
-
-let response = TsonData::Object(6, vec![
-    TsonData::String("processed".to_string()),
-    TsonData::Int(42),
-]);
-let bytes = emit_with_context(&response, &incoming_defs, &incoming_dict).unwrap();
+```js
+const tson = require('@siktec-lab/tson')
+const blob = tson.dumps('{"name":"Alice","age":30}')  // -> Buffer
+const obj  = tson.loads(blob)                          // -> object
 ```
 
-Field values must be in **definition field order** (alphabetical).
+See the [Rust](docs/DOC.md), [Python](docs/python.md), and [Node.js](docs/js.md)
+guides for the full API (emit mode, streaming, direct field access, etc.).
 
-## Direct Field Access - `doc.get()`, `doc.index()`, `doc.get_by_index()`
-
-Extract values without decompiling to JSON. O(1) access when you pre-resolve field indices:
-
-```rust
-let doc = tson::compile_json(r#"{"name":"Alice","age":30}"#).unwrap();
-
-// By name (linear scan)
-let name = doc.get("name").unwrap();
-let age = doc.get("age").unwrap();
-
-// Or pre-resolve index for O(1) repeated access
-let name_idx = doc.index("name").unwrap();
-for _ in 0..1000 {
-    let n = doc.get_by_index(name_idx).unwrap();
-}
-```
-
-## Multi-Document Stream - `TsonDocReader`
-
-Read length-prefixed TSON documents from any byte source (archives, TCP streams).
-
-```rust
-use tson::stream::TsonDocReader;
-use std::io::Cursor;
-
-for doc in TsonDocReader::new(cursor) {
-    println!("Defs: {}", doc.unwrap().definitions.len());
-}
-```
-
-Each document is prefixed by a 4-byte LE length `u32` followed by the TSON binary.
-
-## Command-Line Tool
-
-```bash
-# Build
-cargo build --release
-
-# Compile JSON -> TSON binary
-./target/release/tson-cli data.json         # writes data.tson
-
-# Decompile TSON -> pretty JSON
-./target/release/tson-cli data.tson         # prints JSON to stdout
-
-# Stream-debug (inspect header, defs, dict, entries)
-./target/release/tson-cli -s data.tson
-```
-
-## Feature Flags
-
-| Feature | Default | Description |
-|---------|---------|-------------|
-| `std`   | on      | Enables `std::io::Read` helpers and the `IoError` variant. Off -> `no_std` + `alloc`. |
-| `json`  | on      | Enables `serde_json`-based `compile_json` / `decompile_to_value`. Off -> pure core. |
-| `dict`  | on      | Enables string interning (dict block). Strings appearing ≥2 times get `StrRef` instead of inline copies. When off, all strings are emitted inline - reduces compile memory at the cost of larger output. |
-
-```bash
-# All features (default)
-cargo build
-
-# Core only (no serde, no std, no dict)
-cargo build --no-default-features
-
-# Core + std (no JSON bridge, no dict)
-cargo build --no-default-features --features std
-
-# Without dict (all strings inline - less compile memory)
-cargo build --no-default-features --features std,json
-```
-
-## Architecture
+## Why TSON?
 
 ```
-┌──────────────────────────────────────────────────────┐
-│  Public API  (tson.rs)                               │
-│  to_bytes / from_bytes / compile_json / stream …     │
-├──────────────────────────────────────────────────────┤
-│  Encode          Decode          Stream              │
-│  (encode.rs)     (decode.rs)     (stream.rs)          │
-│  13B header      13B header     TsonStreamReader      │
-│  hybrid strings  sentinel+StrRef dict available        │
-├──────────────────────────────────────────────────────┤
-│  Type System     (structure.rs, error.rs)             │
-│  TsonType, TsonData::StrRef, TsonDocument::dict      │
-├──────────────────────────────────────────────────────┤
-│  JSON Bridge     (compile.rs, decompile.rs)           │
-│  lazy-promotion dict, inline↔StrRef resolution       │
-└──────────────────────────────────────────────────────┘
+JSON (890 bytes)               TSON binary (~374 bytes, 42%)
+[{                              ┌── Header (13 B)
+  "id": 1,                      ├── Definition block — every field name once
+  "name": "Alice",             │   #7 {street,city,state,zip}
+  "address": { … },            │   #8 {id,name,age,address,hobbies}
+  "hobbies": [ … ]             ├── Dict block — repeated strings once
+}, …]                          └── Data block — pure typed values
 ```
 
-All core modules (`structure`, `encode`, `decode`, `stream`) operate on `&[u8]` slices with zero system dependencies beyond `alloc`. The JSON bridge (`compile`, `decompile`) is feature-gated behind `#[cfg(feature = "json")]`.
+- **Zero-dependency core** — encode/decode/stream on `&[u8]`, only needs `alloc`.
+- **`no_std` capable** — runs on microcontrollers; `O(1)` memory per entry with
+  the streaming reader.
+- **Schema + string dedup** — identical object shapes share one definition;
+  strings seen ≥2× are interned (`StrRef`).
+- **Self-describing** — every value carries its definition index; no external
+  schema file, supports partial/streaming decode.
+- **Safe by default** — bounds-checked reads, OOM caps, recursion guard, UTF-8
+  validation (see [Security](#security)).
 
-## Benchmark
-
-The project includes two human-readable benchmark tools plus a Criterion harness.
-
-### `tson-bench` - Compression Summary
-
-Scans `examples/` for `.json` files, compiles each to TSON, reports compression ratios with dict size and leaf entry counts.
-
-```bash
-cargo run --release --bin tson-bench                 # compression table
-cargo run --release --bin tson-bench -- --perf        # + p50/p99 timing
-```
-
-```
-╔══════════════════════╤══════════╤══════════╤══════════╤══════════╤══════════╤═════════╗
-║ File                 │ JSON (B) │ TSON (B) │   Ratio  │    Defs  │    Dict  │ Entries ║
-╠══════════════════════╪══════════╪══════════╪══════════╪══════════╪══════════╪═════════╣
-║ telemetry.json       │    54.4K │    16.2K │    29.8% │       11 │       63 │     500 ║
-║ config.json          │    27.9K │     8.4K │    30.3% │       16 │       20 │       1 ║
-║ 128KB.json           │   249.2K │   104.3K │    41.9% │        8 │      601 │     788 ║
-║ users-t1.json        │    890 B │    374 B │    42.0% │       10 │        1 │       3 ║
-╟──────────────────────┼──────────┼──────────┼──────────┼──────────┼──────────┼─────────╢
-║ TOTAL                │   331.0K │   129.2K │    39.0% │          │          │         ║
-╚══════════════════════╧══════════╧══════════╧══════════╧══════════╧══════════╧═════════╝
-```
-
-### `comp-bench` - Detailed Performance Breakdown
-
-Measures 7 independent workloads: JSON parse, compile, encode, decode, decompile, streaming read, and full round-trip.
-
-```bash
-cargo run --release --bin comp-bench                            # users-t1.json
-cargo run --release --bin comp-bench -- examples/telemetry.json
-```
-
-```
-╔══════════════════════╤══════════════╤══════════════════╗
-║  Operation           │    avg / iter│   % of round-trip ║
-╠══════════════════════╪══════════════╪══════════════════╣
-║  serde_json parse    │     2641 ns  │  15%  (baseline)   ║
-║  TSON compile        │     8098 ns  │  46%               ║
-║  TSON encode         │      453 ns  │   3%   (cheapest!) ║
-║  TSON decode         │     2178 ns  │  12%               ║
-║  TSON decompile      │     2035 ns  │  12%               ║
-║  TSON stream (full)  │     2088 ns  │  12%               ║
-╟──────────────────────┼──────────────┼──────────────────╢
-║  Full round-trip     │    11987 ns  │  summed            ║
-╚══════════════════════╧══════════════════════════════════╝
-```
-
-### `cargo bench` - Criterion Micro-benchmarks
-
-For statistically rigorous numbers (warmup, outlier detection), `benches/core.rs`
-measures compile/encode/decode/decompile/round-trip over `examples/telemetry.json`
-and `examples/128KB.json`:
-
-```bash
-cargo bench
-```
-
-### Observations
-- **Compile dominates** (~46% of per-op time) - schema discovery + string interning + definition building.
-- **Encode is the cheapest stage** (~0.45µs) - values are appended directly into one shared output buffer, with no per-node allocation or copy.
-- **Decode is competitive** with JSON parse - cached definitions and O(1) index lookups.
-- **Streaming** loads defs+dict once, then yields entries without re-parsing.
-- **Dict is empty for unique-only documents** - lazy-promotion ensures no waste. Only strings appearing ≥2 times are included.
-- **70%+ savings** on large repetitive telemetry (500 sensor readings with 6 repeated field names per reading).
-
-## Why TSON? Comparison with Other Formats
-
-TSON occupies a unique position in the binary JSON landscape - it is neither a general-purpose serializer nor a schema-first code generator. It compiles JSON into a **self-describing, compressed binary** that is optimized for *decoding on constrained devices*.
-
-### Size Comparison
+### Size comparison
 
 | File | JSON | TSON | Savings |
 |------|------|------|---------|
 | `telemetry.json` (500 sensor readings) | 54.4 KB | 16.2 KB | **70.2%** |
-| `config.json` (200 routing rules) | 27.9 KB |  8.4 KB | **69.7%** |
+| `config.json` (200 routing rules) | 27.9 KB | 8.4 KB | **69.7%** |
 | `128KB.json` (mixed documents) | 249.2 KB | 104.3 KB | **58.1%** |
-| `iot-t2.json` |  1.3 KB | 0.6 KB | 49.1% |
-| `users-t1.json` | 890 B | 374 B | 58.0% |
 
-For repetitive structured data, TSON achieves **60-70% compression** by deduplicating field names and interned strings. The larger and more repetitive the input, the better the ratio.
+### vs. other binary formats
 
-### Format Comparison
+| | TSON | MessagePack | CBOR | Protobuf | FlatBuffers |
+|--|------|-------------|------|----------|-------------|
+| Self-describing | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Auto schema discovery | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Field-name dedup | ✅ | ❌ | ❌ | ❌ | ❌ |
+| String interning | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Streaming decode, O(1) mem | ✅ | ❌ | ❌ | ❌ | ✅ |
+| `no_std` + alloc | ✅ | ❌ | ❌ | ❌ | ❌ |
 
-| Feature | TSON | MessagePack | CBOR | serde\_json | Protobuf | FlatBuffers |
-|---------|------|-------------|------|-------------|----------|-------------|
-| **Self-describing** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
-| **Schema discovery** | ✅ auto | ❌ | ❌ | ❌ | ❌ hardcoded | ❌ |
-| **String interning** | ✅ per-doc | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **Field-name dedup** | ✅ auto | ❌ repeats keys | ❌ | ❌ | ❌ | ❌ |
-| **Streaming decode** | ✅ O(1) mem | ❌ | ❌ | ❌ | ❌ | ✅ |
-| **no\_std + alloc** | ✅ | ❌ std | ❌ std | ❌ std | ❌ | ❌ |
-| **Zero-copy strings** | ✅ StrRef | ❌ | ❌ | ❌ | ❌ | ✅ |
-| **Security caps** | ✅ built-in | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **Hybrid str lengths** | ✅ 1/2/4 B | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **Human-readable** | ❌ binary | ❌ binary | ❌ binary | ✅ text | ❌ | ❌ |
+**TSON trades compile time for decode efficiency** — the compiler discovers
+schemas and interns strings so a constrained decoder can read values without
+allocating field names. Ideal when a server compiles telemetry once and many
+small devices decode it.
 
-### When to Use Each Format
+## Command-line tool
 
-| Scenario | Best Choice | Why |
-|----------|-------------|-----|
-| Browser ↔ server REST API | **JSON** | Native support everywhere |
-| General-purpose binary packing | **MessagePack** | Good libraries, no schema needed |
-| IoT with constrained nodes | **CBOR** | RFC standard, concise encoding |
-| High-performance RPC | **Protobuf** | Schema-first, fast, compact |
-| Microcontroller receiving structured telemetry | **TSON** | No schema file, streaming, zero-copy strings |
-| Embedded device with limited RAM | **TSON** | `no_std` + alloc, O(1) per-entry memory |
-| Config files needing human readability | **JSON** | Text is still the universal interface |
+```bash
+cargo build --release
+./target/release/tson-cli data.json     # JSON  -> data.tson
+./target/release/tson-cli data.tson     # TSON  -> pretty JSON on stdout
+./target/release/tson-cli -s data.tson  # inspect header / defs / dict / entries
+```
 
-### Key Insight
+## Feature flags
 
-**TSON trades compile time for decode efficiency.** The compiler does the heavy lifting - discovering schemas, interning strings, building definitions - so that the decoder on a microcontroller can process data without allocating field names and strings. For a server compiling millions of telemetry packets, the compile cost is amortized. For the microcontroller decoding thousands of entries, the memory savings and allocation-free path are transformative.
+| Feature | Default | Description |
+|---------|---------|-------------|
+| `std`   | on | `std::io::Read` helpers + `IoError`. Off → `no_std` + `alloc`. |
+| `json`  | on | `serde_json`-based `compile_json` / `decompile_to_value`. |
+| `dict`  | on | String interning (dict block). Off → all strings inline. |
+
+```bash
+cargo build                               # default: std + json + dict
+cargo build --no-default-features         # no_std core (alloc only)
+cargo build --no-default-features --features std,json
+```
+
+## Performance
+
+Round-trip ≈ **12 µs** for a small doc, ~0.7 ms for 54 KB telemetry (release
+build). Encode is the cheapest stage (~0.45 µs) — values are appended straight
+into one shared buffer with no per-node allocation. Compile dominates (~46%).
+Reproduce with `cargo bench` (Criterion) or `make bench` (human-readable
+tables). Full breakdown in the [Rust guide](docs/DOC.md#8-performance-summary).
 
 ## Security
 
-TSON prioritizes safe decoding of untrusted input. The reference implementation includes:
+TSON is built to decode **untrusted** input safely: bounds-checked reads (no
+panics on malformed data), OOM caps (entries ≤ 1M, defs ≤ 2048, fields ≤ 256),
+a recursion-depth guard (≤ 128), UTF-8 validation, and header-offset
+consistency checks. Details in
+[the format spec](docs/TSON-FORMAT.md#10-security-considerations).
 
-- **Bounds-checked reads**: every byte access is guarded, no panics on malformed input.
-- **OOM caps**: entry count (1M max), definition count (2048 max), fields per object (256 max).
-- **Recursion guard**: nesting depth limited to 128 - prevents stack overflow from circular definitions.
-- **UTF-8 validation**: all string data is validated; invalid sequences are rejected.
-- **Header validation**: offsets checked for consistency before use (def ≥ 13, dict ≥ def, data ≥ dict).
-
-See the [Security Considerations](TSON-FORMAT.md#10-security-considerations) section in TSON-FORMAT.md for full details.
-
-## Testing
-
-Three language bindings, one `make` target each.
-
-| Language | Command | Tests |
-|----------|---------|-------|
-| **Rust** | `make test-rust` | 48 unit + 3 doctests |
-| **Python** | `make test-python` | 9 tests (round-trip, file I/O, emit, compression) |
-| **Node.js** | `make test-node` | 8 tests (dumps/loads, file, emit, errors) |
-| **All** | `make test` | Full cross-language suite |
-
-### Quick Run
+## Development
 
 ```bash
-make help           # show all commands
-make test-rust      # Rust only (always works)
-make test-python    # requires: pip install maturin
-make test-node      # requires: cd js && npm install
-make test           # all three
-make bench          # benchmarks
+make help          # list all targets
+make test          # Rust + Python + Node test suites
+make bench         # compression + performance tables
+make pre-push      # every CI gate locally (fmt, clippy, features, tests)
 ```
 
-The Makefile builds the Python wheel (`maturin`) and the Node.js addon
-(napi-rs v3, via `cd js && npm run build`) automatically. Full reference:
-
-```bash
-make pre-push       # run every CI gate locally (fmt, clippy, features, test)
-make fmt            # format code (rustfmt)
-make clippy         # lint, warnings-as-errors (CI gate)
-make features       # no_std / std / all-features build checks (CI gate)
-make check          # cargo check --all-features
-make build          # cargo build --release
-make test           # run all tests
-make bench          # run all benchmarks
-make bench-size     # compression summary
-make bench-perf     # detailed performance
-make clean          # cargo clean
-make all            # build everything (Rust + Python + Node)
-```
-
-## Full Format Specification
-
-See [TSON-FORMAT.md](TSON-FORMAT.md) for the complete binary wire protocol with byte-level examples and BNF grammar.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for dev setup, the CI gates, and how
+releases publish to crates.io / PyPI / npm.
 
 ## License
 
-MIT
+[MIT](LICENSE) © SIKTEC Lab

@@ -415,4 +415,5 @@ cargo test
 cargo run --release --bin tson-bench
 ```
 
-See [README.md](README.md) for API documentation and usage examples.
+See [README.md](../README.md) for API documentation and usage examples, and
+[DOC.md](DOC.md) for the full Rust user guide.

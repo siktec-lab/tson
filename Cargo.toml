@@ -22,9 +22,7 @@ exclude = [
     "examples/",
     "scripts/",
     ".github/",
-    "DOC.md",
-    "REAL-LIFE.md",
-    "TSON-FORMAT.md",
+    "docs/",
     "CONTRIBUTING.md",
 ]
 
