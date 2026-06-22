@@ -90,11 +90,11 @@ jobs:
         with:
           skip-existing: true
 
-  # ── npm (DEFERRED) ───────────────────────────────────────────────
-  # npm Trusted Publishing requires each package to exist before OIDC can be
-  # configured, and we publish 6 packages (main + 5 platform). Until that
-  # bootstrap is done, this job only runs on a manual dispatch with
-  # publish_npm=true AND an NPM_TOKEN secret present. See CONTRIBUTING.md.
+  # ── npm (manual) ─────────────────────────────────────────────────
+  # Runs only on a manual dispatch with publish_npm=true. Publishes the main
+  # package + 5 per-platform packages via Trusted Publishing (OIDC) — each of
+  # the 6 must have this workflow set as its trusted publisher on npmjs.com.
+  # Kept off the tag trigger so an npm hiccup never blocks crates.io/PyPI.
   build-node:
     name: Build addon (${{ matrix.target }})
     if: github.event_name == 'workflow_dispatch' && inputs.publish_npm
@@ -138,12 +138,16 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write # required for npm Trusted Publishing (OIDC) + provenance
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
+      # npm Trusted Publishing (OIDC) needs npm CLI >= 11.5.1.
+      - name: Upgrade npm for OIDC
+        run: npm install -g npm@latest
       - name: Install JS deps
         working-directory: js
         run: npm install
@@ -158,18 +162,13 @@ jobs:
         run: |
           npx napi create-npm-dirs
           npx napi artifacts -o artifacts --npm-dir npm
-      # Publish the 5 platform packages (optionalDependencies), then the main
-      # package. publishConfig.access=public lets the scoped packages go public.
+      # Publish via Trusted Publishing (OIDC) — no NPM_TOKEN. npm mints
+      # short-lived credentials from the id-token and attaches provenance.
+      # Each of the 6 packages must have this workflow set as its trusted
+      # publisher on npmjs.com (one-time, per package).
       - name: Publish platform packages
         working-directory: js
-        # Publishes the optionalDependencies (platform) packages.
-        # --no-gh-release: napi defaults to creating a GitHub release, which
-        # needs contents:write + a 401s here; we don't want it to anyway.
         run: npx napi pre-publish -t npm --no-gh-release
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Publish main package
         working-directory: js
         run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

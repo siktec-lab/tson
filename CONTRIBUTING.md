@@ -136,16 +136,26 @@ The tag triggers the Release workflow:
 - **PyPI** — `maturin` builds a wheel per OS/arch (matrix), then
   `pypa/gh-action-pypi-publish` uploads via OIDC.
 
-### npm (deferred)
+### npm
 
-npm Trusted Publishing needs each package to **exist before** OIDC can be
-configured, and we ship 6 packages (`@siktec-lab/tson` + 5
-`@siktec-lab/tson-<platform>`). To enable npm:
-1. Bootstrap-publish all 6 once (locally or via a short-lived `NPM_TOKEN`):
-   build the addon per platform, `napi artifacts`, then `napi pre-publish`.
-2. Either keep an `NPM_TOKEN` repo secret and run the workflow with
-   `workflow_dispatch` + `publish_npm=true`, or configure OIDC trusted
-   publishers per package and switch the npm job to OIDC.
+npm publishes the main package `@siktec-lab/tson` plus 5 per-platform packages
+`@siktec-lab/tson-<platform>` (selected at install time via
+`optionalDependencies`). It uses **Trusted Publishing (OIDC)** like the others —
+no `NPM_TOKEN`.
+
+It's kept **off the tag trigger** (an npm hiccup shouldn't block crates.io/PyPI)
+and runs only on a manual dispatch:
+
+```bash
+gh workflow run release.yml -f publish_npm=true   # after the version is tagged
+```
+
+**One-time OIDC setup** — npm requires each package to *exist first*, so the very
+first release was bootstrapped with a short-lived token. After that, set this
+workflow as the **trusted publisher** for each of the 6 packages at
+`https://www.npmjs.com/package/<pkg>/access` (Repository `siktec-lab/tson`,
+workflow `release.yml`). The publish job has `id-token: write` and upgrades the
+npm CLI to ≥ 11.5.1 (OIDC requirement); provenance is attached automatically.
 
 ### Nuances worth knowing
 
