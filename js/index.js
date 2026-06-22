@@ -75,8 +75,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('tson-android-arm64')
-        const bindingPackageVersion = require('tson-android-arm64/package.json').version
+        const binding = require('@siktec-lab/tson-android-arm64')
+        const bindingPackageVersion = require('@siktec-lab/tson-android-arm64/package.json').version
         if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -91,8 +91,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('tson-android-arm-eabi')
-        const bindingPackageVersion = require('tson-android-arm-eabi/package.json').version
+        const binding = require('@siktec-lab/tson-android-arm-eabi')
+        const bindingPackageVersion = require('@siktec-lab/tson-android-arm-eabi/package.json').version
         if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -112,8 +112,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('tson-win32-x64-gnu')
-        const bindingPackageVersion = require('tson-win32-x64-gnu/package.json').version
+        const binding = require('@siktec-lab/tson-win32-x64-gnu')
+        const bindingPackageVersion = require('@siktec-lab/tson-win32-x64-gnu/package.json').version
         if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -128,8 +128,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('tson-win32-x64-msvc')
-        const bindingPackageVersion = require('tson-win32-x64-msvc/package.json').version
+        const binding = require('@siktec-lab/tson-win32-x64-msvc')
+        const bindingPackageVersion = require('@siktec-lab/tson-win32-x64-msvc/package.json').version
         if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -145,8 +145,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('tson-win32-ia32-msvc')
-        const bindingPackageVersion = require('tson-win32-ia32-msvc/package.json').version
+        const binding = require('@siktec-lab/tson-win32-ia32-msvc')
+        const bindingPackageVersion = require('@siktec-lab/tson-win32-ia32-msvc/package.json').version
         if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -161,8 +161,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('tson-win32-arm64-msvc')
-        const bindingPackageVersion = require('tson-win32-arm64-msvc/package.json').version
+        const binding = require('@siktec-lab/tson-win32-arm64-msvc')
+        const bindingPackageVersion = require('@siktec-lab/tson-win32-arm64-msvc/package.json').version
         if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -180,8 +180,8 @@ function requireNative() {
       loadErrors.push(e)
     }
     try {
-      const binding = require('tson-darwin-universal')
-      const bindingPackageVersion = require('tson-darwin-universal/package.json').version
+      const binding = require('@siktec-lab/tson-darwin-universal')
+      const bindingPackageVersion = require('@siktec-lab/tson-darwin-universal/package.json').version
       if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
         throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
       }
@@ -196,8 +196,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('tson-darwin-x64')
-        const bindingPackageVersion = require('tson-darwin-x64/package.json').version
+        const binding = require('@siktec-lab/tson-darwin-x64')
+        const bindingPackageVersion = require('@siktec-lab/tson-darwin-x64/package.json').version
         if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -212,8 +212,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('tson-darwin-arm64')
-        const bindingPackageVersion = require('tson-darwin-arm64/package.json').version
+        const binding = require('@siktec-lab/tson-darwin-arm64')
+        const bindingPackageVersion = require('@siktec-lab/tson-darwin-arm64/package.json').version
         if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -232,8 +232,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('tson-freebsd-x64')
-        const bindingPackageVersion = require('tson-freebsd-x64/package.json').version
+        const binding = require('@siktec-lab/tson-freebsd-x64')
+        const bindingPackageVersion = require('@siktec-lab/tson-freebsd-x64/package.json').version
         if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -248,8 +248,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('tson-freebsd-arm64')
-        const bindingPackageVersion = require('tson-freebsd-arm64/package.json').version
+        const binding = require('@siktec-lab/tson-freebsd-arm64')
+        const bindingPackageVersion = require('@siktec-lab/tson-freebsd-arm64/package.json').version
         if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -269,8 +269,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('tson-linux-x64-musl')
-          const bindingPackageVersion = require('tson-linux-x64-musl/package.json').version
+          const binding = require('@siktec-lab/tson-linux-x64-musl')
+          const bindingPackageVersion = require('@siktec-lab/tson-linux-x64-musl/package.json').version
           if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -285,8 +285,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('tson-linux-x64-gnu')
-          const bindingPackageVersion = require('tson-linux-x64-gnu/package.json').version
+          const binding = require('@siktec-lab/tson-linux-x64-gnu')
+          const bindingPackageVersion = require('@siktec-lab/tson-linux-x64-gnu/package.json').version
           if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -303,8 +303,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('tson-linux-arm64-musl')
-          const bindingPackageVersion = require('tson-linux-arm64-musl/package.json').version
+          const binding = require('@siktec-lab/tson-linux-arm64-musl')
+          const bindingPackageVersion = require('@siktec-lab/tson-linux-arm64-musl/package.json').version
           if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -319,8 +319,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('tson-linux-arm64-gnu')
-          const bindingPackageVersion = require('tson-linux-arm64-gnu/package.json').version
+          const binding = require('@siktec-lab/tson-linux-arm64-gnu')
+          const bindingPackageVersion = require('@siktec-lab/tson-linux-arm64-gnu/package.json').version
           if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -337,8 +337,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('tson-linux-arm-musleabihf')
-          const bindingPackageVersion = require('tson-linux-arm-musleabihf/package.json').version
+          const binding = require('@siktec-lab/tson-linux-arm-musleabihf')
+          const bindingPackageVersion = require('@siktec-lab/tson-linux-arm-musleabihf/package.json').version
           if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -353,8 +353,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('tson-linux-arm-gnueabihf')
-          const bindingPackageVersion = require('tson-linux-arm-gnueabihf/package.json').version
+          const binding = require('@siktec-lab/tson-linux-arm-gnueabihf')
+          const bindingPackageVersion = require('@siktec-lab/tson-linux-arm-gnueabihf/package.json').version
           if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -371,8 +371,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('tson-linux-loong64-musl')
-          const bindingPackageVersion = require('tson-linux-loong64-musl/package.json').version
+          const binding = require('@siktec-lab/tson-linux-loong64-musl')
+          const bindingPackageVersion = require('@siktec-lab/tson-linux-loong64-musl/package.json').version
           if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -387,8 +387,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('tson-linux-loong64-gnu')
-          const bindingPackageVersion = require('tson-linux-loong64-gnu/package.json').version
+          const binding = require('@siktec-lab/tson-linux-loong64-gnu')
+          const bindingPackageVersion = require('@siktec-lab/tson-linux-loong64-gnu/package.json').version
           if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -405,8 +405,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('tson-linux-riscv64-musl')
-          const bindingPackageVersion = require('tson-linux-riscv64-musl/package.json').version
+          const binding = require('@siktec-lab/tson-linux-riscv64-musl')
+          const bindingPackageVersion = require('@siktec-lab/tson-linux-riscv64-musl/package.json').version
           if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -421,8 +421,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('tson-linux-riscv64-gnu')
-          const bindingPackageVersion = require('tson-linux-riscv64-gnu/package.json').version
+          const binding = require('@siktec-lab/tson-linux-riscv64-gnu')
+          const bindingPackageVersion = require('@siktec-lab/tson-linux-riscv64-gnu/package.json').version
           if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -438,8 +438,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('tson-linux-ppc64-gnu')
-        const bindingPackageVersion = require('tson-linux-ppc64-gnu/package.json').version
+        const binding = require('@siktec-lab/tson-linux-ppc64-gnu')
+        const bindingPackageVersion = require('@siktec-lab/tson-linux-ppc64-gnu/package.json').version
         if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -454,8 +454,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('tson-linux-s390x-gnu')
-        const bindingPackageVersion = require('tson-linux-s390x-gnu/package.json').version
+        const binding = require('@siktec-lab/tson-linux-s390x-gnu')
+        const bindingPackageVersion = require('@siktec-lab/tson-linux-s390x-gnu/package.json').version
         if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -474,8 +474,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('tson-openharmony-arm64')
-        const bindingPackageVersion = require('tson-openharmony-arm64/package.json').version
+        const binding = require('@siktec-lab/tson-openharmony-arm64')
+        const bindingPackageVersion = require('@siktec-lab/tson-openharmony-arm64/package.json').version
         if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -490,8 +490,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('tson-openharmony-x64')
-        const bindingPackageVersion = require('tson-openharmony-x64/package.json').version
+        const binding = require('@siktec-lab/tson-openharmony-x64')
+        const bindingPackageVersion = require('@siktec-lab/tson-openharmony-x64/package.json').version
         if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -506,8 +506,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('tson-openharmony-arm')
-        const bindingPackageVersion = require('tson-openharmony-arm/package.json').version
+        const binding = require('@siktec-lab/tson-openharmony-arm')
+        const bindingPackageVersion = require('@siktec-lab/tson-openharmony-arm/package.json').version
         if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -548,7 +548,7 @@ if (!nativeBinding || forceWasi) {
   }
   if (!nativeBinding || forceWasi) {
     try {
-      wasiBinding = require('tson-wasm32-wasi')
+      wasiBinding = require('@siktec-lab/tson-wasm32-wasi')
       nativeBinding = wasiBinding
     } catch (err) {
       if (forceWasi) {

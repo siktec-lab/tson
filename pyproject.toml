@@ -3,7 +3,9 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "tson"
+# Distribution name on PyPI (`tson` is taken). The importable module is still
+# `tson` — see `module-name` under [tool.maturin].
+name = "tson-bin"
 version = "0.1.0"
 description = "Terse JSON — compact binary JSON for microcontrollers"
 readme = "README.md"
@@ -28,3 +30,5 @@ Issues = "https://github.com/siktec-lab/tson/issues"
 [tool.maturin]
 bindings = "pyo3"
 features = ["python"]
+# Keep `import tson` working even though the PyPI distribution is `tson-bin`.
+module-name = "tson"

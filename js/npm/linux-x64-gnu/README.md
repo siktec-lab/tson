@@ -1,3 +1,3 @@
-# `tson-linux-x64-gnu`
+# `@siktec-lab/tson-linux-x64-gnu`
 
-This is the **x86_64-unknown-linux-gnu** binary for `tson`
+This is the **x86_64-unknown-linux-gnu** binary for `@siktec-lab/tson`

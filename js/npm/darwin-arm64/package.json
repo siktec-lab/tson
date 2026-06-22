@@ -1,5 +1,5 @@
 {
-  "name": "tson-darwin-arm64",
+  "name": "@siktec-lab/tson-darwin-arm64",
   "version": "0.1.0",
   "cpu": [
     "arm64"

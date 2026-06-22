@@ -34,8 +34,9 @@ echo "  ✓ pyproject.toml → $NEW_VER"
 # Only the FIRST "version" (top-level) — not the "version": "napi version"
 # entry in the scripts block.
 sed -i "0,/\"version\": \".*\"/s//\"version\": \"$NEW_VER\"/" js/package.json
-# Pin each per-platform optionalDependency to the new version.
-sed -i "s/\(\"tson-[a-z0-9-]*\": \)\"[^\"]*\"/\1\"$NEW_VER\"/g" js/package.json
+# Pin each per-platform optionalDependency (scoped @siktec-lab/tson-*) to the
+# new version.
+sed -i "s/\(\"@siktec-lab\/tson-[a-z0-9-]*\": \)\"[^\"]*\"/\1\"$NEW_VER\"/g" js/package.json
 echo "  ✓ js/package.json → $NEW_VER"
 
 # ── js/npm/<platform>/package.json (regenerate version via napi) ────

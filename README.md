@@ -49,11 +49,11 @@ JSON (890 bytes)               TSON binary (~374 bytes)
 # Rust (crates.io)
 cargo add tson
 
-# Python (PyPI)
-pip install tson
+# Python (PyPI) — distribution is `tson-bin`; you still `import tson`
+pip install tson-bin
 
-# Node.js (npm) — ships a prebuilt addon per platform
-npm install tson
+# Node.js (npm) — scoped package, ships a prebuilt addon per platform
+npm install @siktec-lab/tson
 ```
 
 ## Quick Start

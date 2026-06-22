@@ -1,5 +1,5 @@
 {
-  "name": "tson-linux-x64-gnu",
+  "name": "@siktec-lab/tson-linux-x64-gnu",
   "version": "0.1.0",
   "cpu": [
     "x64"
