@@ -102,9 +102,11 @@ jobs:
         run: npm install -g @napi-rs/cli@2.18.4
 
       - name: Build addon
-        # napi v2 flags: `-c` for the napi config (package.json) and a
-        # positional dest dir. (--package-json-path/--output-dir never existed.)
-        run: napi build --platform --release -c js/package.json --features nodejs js
+        # napi v2 flags: `-c` = napi config (package.json), positional dest dir.
+        # `--cargo-flags=--lib` restricts the build to the cdylib: without it
+        # napi runs `cargo build --features nodejs` over ALL targets, and the
+        # bins (which don't link the Node runtime) fail with undefined napi_* symbols.
+        run: napi build --platform --release -c js/package.json --features nodejs --cargo-flags="--lib" js
 
       - name: Run Node.js tests
         run: node js/test.js
