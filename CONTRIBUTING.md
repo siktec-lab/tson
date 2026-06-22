@@ -140,15 +140,10 @@ The tag triggers the Release workflow:
 
 npm publishes the main package `@siktec-lab/tson` plus 5 per-platform packages
 `@siktec-lab/tson-<platform>` (selected at install time via
-`optionalDependencies`). It uses **Trusted Publishing (OIDC)** like the others —
-no `NPM_TOKEN`.
-
-It's kept **off the tag trigger** (an npm hiccup shouldn't block crates.io/PyPI)
-and runs only on a manual dispatch:
-
-```bash
-gh workflow run release.yml -f publish_npm=true   # after the version is tagged
-```
+`optionalDependencies`). Like crates.io and PyPI it publishes **automatically on
+`v*` tags** via **Trusted Publishing (OIDC)** — no `NPM_TOKEN`. (You can also
+trigger it manually: `gh workflow run release.yml -f publish_npm=true`.) The npm
+jobs are independent of the crate/PyPI jobs, so an npm failure never blocks them.
 
 **One-time OIDC setup** — npm requires each package to *exist first*, so the very
 first release was bootstrapped with a short-lived token. After that, set this

@@ -23,9 +23,9 @@ on:
   workflow_dispatch:
     inputs:
       publish_npm:
-        description: "Also publish npm packages (requires npm bootstrap done)"
+        description: "Publish npm packages on this manual run (npm also publishes automatically on v* tags)"
         type: boolean
-        default: false
+        default: true
 
 jobs:
   # ── crates.io (OIDC) ─────────────────────────────────────────────
@@ -90,14 +90,15 @@ jobs:
         with:
           skip-existing: true
 
-  # ── npm (manual) ─────────────────────────────────────────────────
-  # Runs only on a manual dispatch with publish_npm=true. Publishes the main
-  # package + 5 per-platform packages via Trusted Publishing (OIDC) — each of
-  # the 6 must have this workflow set as its trusted publisher on npmjs.com.
-  # Kept off the tag trigger so an npm hiccup never blocks crates.io/PyPI.
+  # ── npm ──────────────────────────────────────────────────────────
+  # Publishes on v* tags (like crate/PyPI) and on a manual dispatch. Publishes
+  # the main package + 5 per-platform packages via Trusted Publishing (OIDC) —
+  # each of the 6 must have this workflow set as its trusted publisher on
+  # npmjs.com. These jobs are independent of the crate/PyPI jobs, so an npm
+  # failure never blocks them.
   build-node:
     name: Build addon (${{ matrix.target }})
-    if: github.event_name == 'workflow_dispatch' && inputs.publish_npm
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish_npm)
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -134,7 +135,7 @@ jobs:
   publish-npm:
     name: Publish to npm
     needs: build-node
-    if: github.event_name == 'workflow_dispatch' && inputs.publish_npm
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish_npm)
     runs-on: ubuntu-latest
     permissions:
       contents: read
