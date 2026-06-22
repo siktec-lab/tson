@@ -1,7 +1,7 @@
-use alloc::{format, string::String, vec::Vec};
 use crate::decode;
 use crate::error::TsonError;
 use crate::structure::*;
+use alloc::{format, string::String, vec::Vec};
 
 /// A streaming TSON reader that yields data entries one at a time.
 ///
@@ -53,19 +53,22 @@ impl<'a> TsonStreamReader<'a> {
         if def_off > bytes.len() {
             return Err(TsonError::ParseError(format!(
                 "Definition block offset {} exceeds buffer length {}",
-                def_off, bytes.len()
+                def_off,
+                bytes.len()
             )));
         }
         if dict_off > bytes.len() {
             return Err(TsonError::ParseError(format!(
                 "Dict block offset {} exceeds buffer length {}",
-                dict_off, bytes.len()
+                dict_off,
+                bytes.len()
             )));
         }
         if data_off > bytes.len() {
             return Err(TsonError::ParseError(format!(
                 "Data block offset {} exceeds buffer length {}",
-                data_off, bytes.len()
+                data_off,
+                bytes.len()
             )));
         }
 
@@ -140,10 +143,8 @@ impl<'a> TsonStreamReader<'a> {
             ))));
         }
 
-        let def_index =
-            u16::from_le_bytes(self.data_slice[0..2].try_into().unwrap());
-        let payload_len =
-            u32::from_le_bytes(self.data_slice[2..6].try_into().unwrap()) as usize;
+        let def_index = u16::from_le_bytes(self.data_slice[0..2].try_into().unwrap());
+        let payload_len = u32::from_le_bytes(self.data_slice[2..6].try_into().unwrap()) as usize;
 
         if 6 + payload_len > self.data_slice.len() {
             self.yielded = self.total_entries;
@@ -210,13 +211,17 @@ pub fn open_stream(bytes: &[u8]) -> Result<TsonStreamReader<'_>, TsonError> {
 
 // Multi-Document Reader
 
+// `multi_doc` is part of the public library API, but the CLI bin target
+// re-declares the module tree without using it — silence the resulting
+// dead-code/unused-import warnings there (they don't fire for lib consumers).
 #[cfg(feature = "std")]
+#[allow(dead_code)]
 pub mod multi_doc {
     //! Multi-document reader (requires `std` feature for `io::Read`).
-    use alloc::vec::Vec;
+    use crate::decode;
     use crate::error::TsonError;
     use crate::structure::TsonDocument;
-    use crate::decode;
+    use alloc::vec::Vec;
 
     /// Reads length-prefixed TSON documents from a byte source.
     pub struct TsonDocReader<R: std::io::Read> {
@@ -226,14 +231,21 @@ pub mod multi_doc {
 
     impl<R: std::io::Read> TsonDocReader<R> {
         pub fn new(source: R) -> Self {
-            TsonDocReader { source, buf: Vec::with_capacity(4096) }
+            TsonDocReader {
+                source,
+                buf: Vec::with_capacity(4096),
+            }
         }
 
         pub fn read_next(&mut self) -> Result<Option<TsonDocument>, TsonError> {
             let mut len_buf = [0u8; 4];
-            let n = self.source.read(&mut len_buf)
+            let n = self
+                .source
+                .read(&mut len_buf)
                 .map_err(|e| TsonError::IoError(e))?;
-            if n == 0 { return Ok(None); }
+            if n == 0 {
+                return Ok(None);
+            }
             if n < 4 {
                 return Err(TsonError::ParseError(
                     "Truncated length prefix in TSON document stream".into(),
@@ -241,7 +253,8 @@ pub mod multi_doc {
             }
             let len = u32::from_le_bytes(len_buf) as usize;
             self.buf.resize(len, 0u8);
-            self.source.read_exact(&mut self.buf)
+            self.source
+                .read_exact(&mut self.buf)
                 .map_err(|e| TsonError::IoError(e))?;
             let doc = decode::decode_document(&self.buf)?;
             Ok(Some(doc))
@@ -261,4 +274,5 @@ pub mod multi_doc {
 }
 
 #[cfg(feature = "std")]
+#[allow(unused_imports)]
 pub use multi_doc::TsonDocReader;

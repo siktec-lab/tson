@@ -99,10 +99,10 @@ jobs:
           node-version: '22'
 
       - name: Install napi-rs CLI
-        run: npm install -g @napi-rs/cli
+        run: npm install -g @napi-rs/cli@^2
 
       - name: Build addon
-        run: npx napi build --platform --release --output-dir js --features nodejs
+        run: npx napi build --platform --release --package-json-path js/package.json --output-dir js --features nodejs
 
       - name: Run Node.js tests
         run: node js/test.js
