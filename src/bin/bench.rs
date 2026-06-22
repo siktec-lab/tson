@@ -39,7 +39,7 @@ fn main() {
     if let Ok(dir) = fs::read_dir(EXAMPLES_DIR) {
         for entry in dir.flatten() {
             let path = entry.path();
-            if path.extension().map_or(false, |e| e == "json") {
+            if path.extension().is_some_and(|e| e == "json") {
                 entries.push(path.to_string_lossy().to_string());
             }
         }

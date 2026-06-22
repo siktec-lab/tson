@@ -1,6 +1,6 @@
 use crate::error::TsonError;
 use crate::structure::*;
-use alloc::{format, string::String, vec::Vec};
+use alloc::{format, string::String, vec, vec::Vec};
 
 // Hybrid string-length encoding:
 //
@@ -63,8 +63,7 @@ fn encode_str_ref(buf: &mut Vec<u8>, idx: u32) {
 // Document
 
 pub fn encode_document(doc: &TsonDocument) -> Result<Vec<u8>, TsonError> {
-    let mut buf = Vec::new();
-    buf.resize(TsonHeader::SIZE, 0u8);
+    let mut buf = vec![0; TsonHeader::SIZE];
 
     let def_off = TsonHeader::SIZE as u32;
     encode_def_block_into(&doc.definitions, &mut buf)?;

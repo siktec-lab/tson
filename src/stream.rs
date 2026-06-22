@@ -239,10 +239,7 @@ pub mod multi_doc {
 
         pub fn read_next(&mut self) -> Result<Option<TsonDocument>, TsonError> {
             let mut len_buf = [0u8; 4];
-            let n = self
-                .source
-                .read(&mut len_buf)
-                .map_err(|e| TsonError::IoError(e))?;
+            let n = self.source.read(&mut len_buf).map_err(TsonError::IoError)?;
             if n == 0 {
                 return Ok(None);
             }
@@ -255,7 +252,7 @@ pub mod multi_doc {
             self.buf.resize(len, 0u8);
             self.source
                 .read_exact(&mut self.buf)
-                .map_err(|e| TsonError::IoError(e))?;
+                .map_err(TsonError::IoError)?;
             let doc = decode::decode_document(&self.buf)?;
             Ok(Some(doc))
         }

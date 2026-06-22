@@ -99,7 +99,7 @@ fn decode_dict_str(bytes: &[u8]) -> Result<(String, usize), TsonError> {
         return Err(TsonError::ParseError("Truncated dict string".into()));
     }
     let first = bytes[0];
-    if first == STRREF_SENTINEL || (first >= 0xC0 && first < 0xFE) {
+    if first == STRREF_SENTINEL || (0xC0..0xFE).contains(&first) {
         return Err(TsonError::ParseError(format!(
             "Invalid dict string encoding byte: 0x{:02X}",
             first
@@ -373,13 +373,10 @@ fn decode_object_value(
     depth: u8,
 ) -> Result<(TsonData, usize), TsonError> {
     if depth > MAX_RECURSION_DEPTH {
-        return Err(TsonError::ParseError(
-            format!(
-                "Max recursion depth {} exceeded at Object",
-                MAX_RECURSION_DEPTH
-            )
-            .into(),
-        ));
+        return Err(TsonError::ParseError(format!(
+            "Max recursion depth {} exceeded at Object",
+            MAX_RECURSION_DEPTH
+        )));
     }
     if bytes.len() < 2 {
         return Err(TsonError::ParseError(
@@ -484,10 +481,7 @@ fn decode_primitive_value(bytes: &[u8], ty: TsonType) -> Result<(TsonData, usize
 }
 
 /// O(1) definition lookup - definitions are stored in index order.
-fn resolve_def<'a>(
-    index: u16,
-    all_defs: &'a [TsonDefinition],
-) -> Result<&'a TsonDefinition, TsonError> {
+fn resolve_def(index: u16, all_defs: &[TsonDefinition]) -> Result<&TsonDefinition, TsonError> {
     all_defs
         .get(index as usize)
         .ok_or_else(|| TsonError::ParseError(format!("Unknown definition index: {}", index)))

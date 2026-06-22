@@ -136,10 +136,7 @@ fn data_to_json(
 /// compiler allocates indices sequentially), so `index` is the slot.
 /// Falls back to a linear scan only if the fast slot's `.index` doesn't
 /// match, preserving correctness if the ordering invariant is ever violated.
-fn resolve_def<'a>(
-    index: u16,
-    all_defs: &'a [TsonDefinition],
-) -> Result<&'a TsonDefinition, TsonError> {
+fn resolve_def(index: u16, all_defs: &[TsonDefinition]) -> Result<&TsonDefinition, TsonError> {
     if let Some(def) = all_defs.get(index as usize) {
         if def.index == index {
             return Ok(def);

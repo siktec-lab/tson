@@ -158,7 +158,7 @@ pub fn compile_json_file(file: std::fs::File) -> Result<TsonDocument, TsonError>
     let mut text = String::new();
     reader
         .read_to_string(&mut text)
-        .map_err(|e| TsonError::IoError(e))?;
+        .map_err(TsonError::IoError)?;
     crate::compile::compile_json_str(&text)
 }
 
@@ -167,9 +167,7 @@ pub fn decompile_tson_file(file: std::fs::File) -> Result<serde_json::Value, Tso
     use std::io::Read;
     let mut reader = std::io::BufReader::new(file);
     let mut buf = Vec::new();
-    reader
-        .read_to_end(&mut buf)
-        .map_err(|e| TsonError::IoError(e))?;
+    reader.read_to_end(&mut buf).map_err(TsonError::IoError)?;
     let doc = decode::decode_document(&buf)?;
     crate::decompile::decompile_document(&doc)
 }
