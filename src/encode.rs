@@ -2,31 +2,31 @@ use crate::error::TsonError;
 use crate::structure::*;
 use alloc::{format, string::String, vec::Vec};
 
-/// Hybrid string-length encoding:
-///
-/// | First byte range  | Overhead | Max length | Format                                  |
-/// |-------------------|----------|------------|-----------------------------------------|
-/// | `0x00..=0x7F`     | 1 B      | 127 B      | `[len: u8][UTF-8]`                     |
-/// | `0x80..=0xBF`     | 2 B      | 16 383 B  | `[0x80|hi6][lo8][UTF-8]`               |
-/// | `0xFE`            | 4 B      | 16 M B    | `[0xFE][u24 LE][UTF-8]`               |
-/// | `0xFF`            | 5 B      | (StrRef)   | `[0xFF][dict_idx: u32 LE]`            |
-///
-/// The remaining bytes `0xC0..=0xFD` are reserved for future extensions.
-///
-/// # Design rationale
-///
-/// - **Small strings dominate** - names, IDs, and status codes are usually
-///   under 128 bytes.  A 1-byte length head saves 3 bytes per short string
-///   compared to a flat u32.
-/// - **Self-describing** - the decoder only needs the first byte to decide
-///   how many more to read.  No cross-entry state, no mode switches.
-/// - **Streaming-safe** - every value carries its own encoding; no need to
-///   have decoded a previous entry to know the length width of the current
-///   one.
-/// - **Sentinel for StrRef** - `0xFF` is reserved as the dict-index marker.
-///   A real string of exactly 0xFF bytes cannot be stored inline - it must
-///   be interned into the dict (the compiler always does this for large
-///   strings anyway).
+// Hybrid string-length encoding:
+//
+// | First byte range  | Overhead | Max length | Format                                  |
+// |-------------------|----------|------------|-----------------------------------------|
+// | `0x00..=0x7F`     | 1 B      | 127 B      | `[len: u8][UTF-8]`                     |
+// | `0x80..=0xBF`     | 2 B      | 16 383 B  | `[0x80|hi6][lo8][UTF-8]`               |
+// | `0xFE`            | 4 B      | 16 M B    | `[0xFE][u24 LE][UTF-8]`               |
+// | `0xFF`            | 5 B      | (StrRef)   | `[0xFF][dict_idx: u32 LE]`            |
+//
+// The remaining bytes `0xC0..=0xFD` are reserved for future extensions.
+//
+// # Design rationale
+//
+// - **Small strings dominate** - names, IDs, and status codes are usually
+//   under 128 bytes.  A 1-byte length head saves 3 bytes per short string
+//   compared to a flat u32.
+// - **Self-describing** - the decoder only needs the first byte to decide
+//   how many more to read.  No cross-entry state, no mode switches.
+// - **Streaming-safe** - every value carries its own encoding; no need to
+//   have decoded a previous entry to know the length width of the current
+//   one.
+// - **Sentinel for StrRef** - `0xFF` is reserved as the dict-index marker.
+//   A real string of exactly 0xFF bytes cannot be stored inline - it must
+//   be interned into the dict (the compiler always does this for large
+//   strings anyway).
 
 // String encoding helpers
 

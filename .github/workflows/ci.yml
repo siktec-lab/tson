@@ -98,8 +98,8 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Install napi-rs CLI
-        run: npm install -g @napi-rs/cli@^2
+      - name: Install napi-rs CLI (v2 - matches js/package.json devDependency)
+        run: npm install -g @napi-rs/cli@2.18.4
 
       - name: Build addon
         run: npx napi build --platform --release --package-json-path js/package.json --output-dir js --features nodejs
