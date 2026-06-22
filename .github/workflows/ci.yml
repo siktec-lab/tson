@@ -102,7 +102,9 @@ jobs:
         run: npm install -g @napi-rs/cli@2.18.4
 
       - name: Build addon
-        run: npx napi build --platform --release --package-json-path js/package.json --output-dir js --features nodejs
+        # napi v2 flags: `-c` for the napi config (package.json) and a
+        # positional dest dir. (--package-json-path/--output-dir never existed.)
+        run: napi build --platform --release -c js/package.json --features nodejs js
 
       - name: Run Node.js tests
         run: node js/test.js

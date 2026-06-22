@@ -78,7 +78,8 @@ test-python: python-build  ## Build + run Python tests
 node-build:  ## Build Node.js addon
 	@echo "==> Building Node.js addon..."
 	@cargo check --features nodejs || { echo "FAIL: cargo check"; exit 1; }
-	@npx -y -p @napi-rs/cli@2.18.4 napi build --platform --release --package-json-path js/package.json --output-dir js --features nodejs 2>/dev/null && echo "   ok" || { echo "FAIL: napi build"; echo "   Install: npm install @napi-rs/cli@2"; exit 1; }
+	@cd js && npm install --no-audit --no-fund >/dev/null 2>&1 || true
+	@js/node_modules/.bin/napi build --platform --release -c js/package.json --features nodejs js 2>/dev/null && echo "   ok" || { echo "FAIL: napi build"; echo "   Install: cd js && npm install"; exit 1; }
 
 test-node: node-build  ## Build + run Node tests
 	@echo "==> Running Node.js tests..."
