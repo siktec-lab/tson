@@ -41,18 +41,21 @@ regressions — Criterion compares against the previous run automatically.
 
 ## Code Style
 
-- Rust: standard `rustfmt` (run `cargo fmt`)
+- Rust: standard `rustfmt` — run `cargo fmt` before committing. CI enforces
+  this with `cargo fmt --check`, which fails on any unformatted code.
 - Python: standard `ruff` or `black` (run `ruff python/`)
-- No warnings: `cargo check` should produce zero warnings
+- No warnings: CI runs `cargo clippy -- -D warnings`, so any warning fails the
+  build. Keep `cargo build` / `cargo clippy` output clean.
 
 ## Pull Request Process
 
 1. Fork the repo and create your branch from `main`
 2. Add tests for any new functionality
-3. Ensure `make test` passes and all build configs above compile
-4. Run `cargo bench` to confirm no performance regression
-5. Update docs if you add or change public APIs
-6. Open a PR with a clear description
+3. Run `cargo fmt` and ensure `cargo clippy -- -D warnings` is clean (CI gates on both)
+4. Ensure `make test` passes and all build configs above compile
+5. Run `cargo bench` to confirm no performance regression
+6. Update docs if you add or change public APIs
+7. Open a PR with a clear description
 
 ## Project Structure
 
