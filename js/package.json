@@ -1,6 +1,6 @@
 {
   "name": "@siktec-lab/tson",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Terse JSON — compact binary JSON for microcontrollers",
   "keywords": ["json", "binary", "serialization", "embedded", "iot", "napi-rs"],
   "license": "MIT",
@@ -45,10 +45,10 @@
     "@napi-rs/cli": "^3"
   },
   "optionalDependencies": {
-    "@siktec-lab/tson-linux-x64-gnu": "0.1.0",
-    "@siktec-lab/tson-linux-arm64-gnu": "0.1.0",
-    "@siktec-lab/tson-darwin-x64": "0.1.0",
-    "@siktec-lab/tson-darwin-arm64": "0.1.0",
-    "@siktec-lab/tson-win32-x64-msvc": "0.1.0"
+    "@siktec-lab/tson-linux-x64-gnu": "0.1.1",
+    "@siktec-lab/tson-linux-arm64-gnu": "0.1.1",
+    "@siktec-lab/tson-darwin-x64": "0.1.1",
+    "@siktec-lab/tson-darwin-arm64": "0.1.1",
+    "@siktec-lab/tson-win32-x64-msvc": "0.1.1"
   }
 }

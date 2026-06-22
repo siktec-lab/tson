@@ -6,7 +6,7 @@ build-backend = "maturin"
 # Distribution name on PyPI (`tson` is taken). The importable module is still
 # `tson` — see `module-name` under [tool.maturin].
 name = "tson-bin"
-version = "0.1.0"
+version = "0.1.1"
 description = "Terse JSON — compact binary JSON for microcontrollers"
 readme = "python/README.md"
 license = { text = "MIT" }
