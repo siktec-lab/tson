@@ -67,7 +67,7 @@ python-build:  ## Build Python wheel
 	@pip install maturin 2>/dev/null || true
 	@cargo check --features python || { echo "FAIL: cargo check"; exit 1; }
 	@maturin build --release 2>&1 | grep -q "Built wheel" && echo "   ok" || { echo "FAIL: maturin build"; echo "   Last output:"; maturin build --release 2>&1; exit 1; }
-	@pip install target/wheels/tson-*.whl 2>/dev/null || true
+	@pip install target/wheels/*.whl 2>/dev/null || true
 
 test-python: python-build  ## Build + run Python tests
 	@echo "==> Running Python tests..."
