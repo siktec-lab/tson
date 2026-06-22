@@ -21,6 +21,24 @@ make test-python   # Python (requires `pip install maturin`)
 make test-node     # Node.js (requires `npm install @napi-rs/cli`)
 ```
 
+Verify every build configuration compiles (the core is `no_std`):
+
+```bash
+cargo build --no-default-features    # no_std (alloc only)
+cargo build                          # std + json + dict (default)
+cargo build --all-features           # incl. python + nodejs bindings
+```
+
+## Benchmarks
+
+```bash
+cargo bench                          # Criterion harness (benches/core.rs)
+make bench                           # compression + comp-bench summary tables
+```
+
+Run `cargo bench` before and after performance-sensitive changes to catch
+regressions — Criterion compares against the previous run automatically.
+
 ## Code Style
 
 - Rust: standard `rustfmt` (run `cargo fmt`)
@@ -31,9 +49,10 @@ make test-node     # Node.js (requires `npm install @napi-rs/cli`)
 
 1. Fork the repo and create your branch from `main`
 2. Add tests for any new functionality
-3. Ensure `make test` passes
-4. Update docs if you add or change public APIs
-5. Open a PR with a clear description
+3. Ensure `make test` passes and all build configs above compile
+4. Run `cargo bench` to confirm no performance regression
+5. Update docs if you add or change public APIs
+6. Open a PR with a clear description
 
 ## Project Structure
 
