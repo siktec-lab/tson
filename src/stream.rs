@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::{format, string::String, vec::Vec};
 use crate::decode;
 use crate::error::TsonError;
 use crate::structure::*;
@@ -213,7 +213,7 @@ pub fn open_stream(bytes: &[u8]) -> Result<TsonStreamReader<'_>, TsonError> {
 #[cfg(feature = "std")]
 pub mod multi_doc {
     //! Multi-document reader (requires `std` feature for `io::Read`).
-    use crate::prelude::*;
+    use alloc::vec::Vec;
     use crate::error::TsonError;
     use crate::structure::TsonDocument;
     use crate::decode;

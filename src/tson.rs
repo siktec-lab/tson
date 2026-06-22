@@ -1,3 +1,4 @@
+use alloc::{string::String, vec, vec::Vec};
 use crate::error::TsonError;
 use crate::encode;
 use crate::decode;
